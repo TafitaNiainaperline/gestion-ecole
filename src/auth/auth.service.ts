@@ -15,19 +15,23 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    const { email, name, password } = registerDto;
+    const { email, username, name, password, role } = registerDto;
 
     // Check if user exists
-    const existingUser = await this.userModel.findOne({ email });
+    const existingUser = await this.userModel.findOne({
+      $or: [{ email }, { username }],
+    });
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw new ConflictException('Email or username already exists');
     }
 
     // Create new user
     const newUser = new this.userModel({
       email,
+      username,
       name,
       password,
+      role,
     });
 
     await newUser.save();
@@ -35,6 +39,7 @@ export class AuthService {
     const token = this.jwtService.sign({
       sub: newUser._id,
       email: newUser.email,
+      username: newUser.username,
     });
 
     return {
@@ -43,30 +48,36 @@ export class AuthService {
       user: {
         id: newUser._id,
         email: newUser.email,
+        username: newUser.username,
         name: newUser.name,
+        role: newUser.role,
       },
     };
   }
 
   async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+    const { email, username, password } = loginDto;
 
-    // Find user by email
-    const user = await this.userModel.findOne({ email });
+    // Find user by email or username
+    const user = await this.userModel.findOne({
+      $or: [{ email }, { username }],
+    });
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     // Compare passwords
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     // Generate JWT token
     const token = this.jwtService.sign({
       sub: user._id,
       email: user.email,
+      username: user.username,
+      role: user.role,
     });
 
     return {
@@ -75,7 +86,9 @@ export class AuthService {
       user: {
         id: user._id,
         email: user.email,
+        username: user.username,
         name: user.name,
+        role: user.role,
       },
     };
   }
