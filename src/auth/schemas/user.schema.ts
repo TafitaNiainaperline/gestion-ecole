@@ -42,18 +42,13 @@ export class User {
 export const UserSchema = SchemaFactory.createForClass(User);
 
 // Hash password before saving
-UserSchema.pre('save', async function (next: any) {
+UserSchema.pre('save', async function () {
   if (!this.isModified('password')) {
-    return next();
+    return;
   }
 
-  try {
-    const salt = await bcryptjs.genSalt(10);
-    this.password = await bcryptjs.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
+  const salt = await bcryptjs.genSalt(10);
+  this.password = await bcryptjs.hash(this.password, salt);
 });
 
 // Method to compare passwords
