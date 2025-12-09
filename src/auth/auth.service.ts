@@ -6,6 +6,7 @@ import { User, UserDocument } from './schemas/user.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import * as bcryptjs from 'bcryptjs';
+import * as jwt from 'jsonwebtoken';
 
 @Injectable()
 export class AuthService {
@@ -36,15 +37,34 @@ export class AuthService {
 
     await newUser.save();
 
-    const token = this.jwtService.sign({
-      sub: newUser._id,
-      email: newUser.email,
-      username: newUser.username,
-    });
+    // Generate access token (short-lived)
+    const accessToken = this.jwtService.sign(
+      {
+        sub: newUser._id,
+        email: newUser.email,
+        username: newUser.username,
+        role: newUser.role,
+      },
+      { expiresIn: '15m' },
+    );
+
+    // Generate refresh token (long-lived)
+    const refreshToken = jwt.sign(
+      {
+        sub: String(newUser._id),
+        email: newUser.email,
+        username: newUser.username,
+      },
+      process.env.JWT_REFRESH_SECRET || 'default_refresh_secret',
+      {
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+      } as jwt.SignOptions,
+    );
 
     return {
       message: 'User registered successfully',
-      access_token: token,
+      access_token: accessToken,
+      refresh_token: refreshToken,
       user: {
         id: newUser._id,
         email: newUser.email,
@@ -72,17 +92,34 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Generate JWT token
-    const token = this.jwtService.sign({
-      sub: user._id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-    });
+    // Generate access token (short-lived)
+    const accessToken = this.jwtService.sign(
+      {
+        sub: user._id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+      },
+      { expiresIn: '15m' },
+    );
+
+    // Generate refresh token (long-lived)
+    const refreshToken = jwt.sign(
+      {
+        sub: String(user._id),
+        email: user.email,
+        username: user.username,
+      },
+      process.env.JWT_REFRESH_SECRET || 'default_refresh_secret',
+      {
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+      } as jwt.SignOptions,
+    );
 
     return {
       message: 'Login successful',
-      access_token: token,
+      access_token: accessToken,
+      refresh_token: refreshToken,
       user: {
         id: user._id,
         email: user.email,
@@ -90,6 +127,23 @@ export class AuthService {
         name: user.name,
         role: user.role,
       },
+    };
+  }
+
+  async refreshToken(user: any) {
+    // Generate new access token
+    const accessToken = this.jwtService.sign(
+      {
+        sub: user.id,
+        email: user.email,
+        username: user.username,
+      },
+      { expiresIn: '15m' },
+    );
+
+    return {
+      message: 'Token refreshed successfully',
+      access_token: accessToken,
     };
   }
 
