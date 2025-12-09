@@ -222,8 +222,8 @@ export class AuthService {
 
     // Update password and clear reset token
     user.password = newPassword;
-    user.passwordResetToken = null;
-    user.passwordResetExpires = null;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
     user.lastPasswordChangeAt = new Date();
     await user.save();
 
