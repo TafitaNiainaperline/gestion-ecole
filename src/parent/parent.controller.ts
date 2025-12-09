@@ -12,7 +12,7 @@ import { CreateParentDto } from './dto/create-parent.dto';
 import { UpdateParentDto } from './dto/update-parent.dto';
 import { Public } from '../auth/decorators/public.decorator';
 
-@Controller('api/parents')
+@Controller('parents')
 export class ParentController {
   constructor(private parentService: ParentService) {}
 

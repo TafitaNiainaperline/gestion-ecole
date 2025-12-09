@@ -14,7 +14,7 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 import { UpdateEcolageDto } from './dto/update-ecolage.dto';
 import { Public } from '../auth/decorators/public.decorator';
 
-@Controller('api/students')
+@Controller('students')
 export class StudentController {
   constructor(private studentService: StudentService) {}
 
