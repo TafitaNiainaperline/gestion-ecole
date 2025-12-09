@@ -9,12 +9,10 @@ import {
 import { ValidationError } from 'class-validator';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from './auth/guards/auth.guard';
-import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  const configService = app.get(ConfigService);
   const jwtService = app.get(JwtService);
   const reflector = app.get(Reflector);
 
@@ -65,11 +63,11 @@ async function bootstrap() {
     },
   });
 
-  SwaggerModule.setup('api-docs', app, document, {
+  SwaggerModule.setup('ecole/api-docs', app, document, {
     swaggerOptions: { persistAuthorization: true },
   });
 
-  app.getHttpAdapter().get('/api-docs.json', (req, res) => {
+  app.getHttpAdapter().get('/ecole/api-docs.json', (_req, res) => {
     res.json(document);
   });
 
@@ -78,7 +76,7 @@ async function bootstrap() {
 
   const port = process.env.APP_PORT || 6012;
   await app.listen(port);
-  console.log(` API Documentation: http://localhost:${port}/api-docs`);
+  console.log(`📚 API Documentation: http://localhost:${port}/ecole/api-docs`);
 }
 
 bootstrap();
