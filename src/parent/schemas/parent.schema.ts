@@ -7,10 +7,7 @@ export type ParentDocument = Parent & Document;
 @Schema({ timestamps: true })
 export class Parent {
   @Prop({ required: true })
-  firstName: string;
-
-  @Prop({ required: true })
-  lastName: string;
+  name: string;
 
   @Prop({ required: true, unique: true })
   phone: string;
@@ -24,9 +21,6 @@ export class Parent {
     default: ParentRelation.PERE,
   })
   relation: string;
-
-  @Prop()
-  email?: string;
 
   @Prop({ default: true })
   isActive: boolean;

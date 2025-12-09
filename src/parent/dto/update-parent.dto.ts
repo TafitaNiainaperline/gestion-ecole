@@ -1,11 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UpdateParentDto {
-  @ApiProperty({ example: 'Jean', description: 'First name', required: false })
-  firstName?: string;
-
-  @ApiProperty({ example: 'Dupont', description: 'Last name', required: false })
-  lastName?: string;
+  @ApiProperty({
+    example: 'Jean Dupont',
+    description: 'Full name',
+    required: false,
+  })
+  name?: string;
 
   @ApiProperty({
     example: '+261320000000',
@@ -27,13 +28,6 @@ export class UpdateParentDto {
     required: false,
   })
   relation?: string;
-
-  @ApiProperty({
-    example: 'jean@example.com',
-    description: 'Email address',
-    required: false,
-  })
-  email?: string;
 
   @ApiProperty({
     example: true,
