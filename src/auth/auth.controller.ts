@@ -1,7 +1,10 @@
-import { Controller, Post, Body, Get, Request, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Request, UseGuards, Patch, Delete, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from './decorators/public.decorator';
 import { AuthGuard } from '@nestjs/passport';
 
@@ -28,11 +31,54 @@ export class AuthController {
     return this.authService.refreshToken(req.user);
   }
 
+  @Public()
+  @Post('forgot-password')
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto);
+  }
+
+  @Public()
+  @Post('reset-password')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
+  }
+
+  @Patch('change-password')
+  async changePassword(
+    @Request() req: any,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(req.user.id, changePasswordDto);
+  }
+
   @Get('profile')
   getProfile(@Request() req: any) {
     return {
       message: 'User profile',
       user: req.user,
     };
+  }
+
+  @Get('users')
+  async getAllUsers() {
+    return this.authService.getAllUsers();
+  }
+
+  @Get('users/:id')
+  async getUserById(@Param('id') id: string) {
+    return this.authService.getUserById(id);
+  }
+
+  @Patch('users/:id')
+  async updateUser(
+    @Param('id') id: string,
+    @Body() updateData: any,
+  ) {
+    return this.authService.updateUser(id, updateData);
+  }
+
+  @Delete('users/:id')
+  async deleteUser(@Param('id') id: string) {
+    return this.authService.deleteUser(id);
   }
 }

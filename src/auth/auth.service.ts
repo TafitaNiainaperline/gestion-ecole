@@ -1,12 +1,15 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from './schemas/user.schema';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import * as bcryptjs from 'bcryptjs';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import * as jwt from 'jsonwebtoken';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -153,5 +156,156 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
     return user;
+  }
+
+  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
+    const { email, username } = forgotPasswordDto;
+
+    if (!email && !username) {
+      throw new BadRequestException('Email or username is required');
+    }
+
+    // Find user by email or username
+    const user = await this.userModel.findOne({
+      $or: [{ email }, { username }],
+    });
+
+    if (!user) {
+      // Return generic message for security (don't reveal if user exists)
+      return {
+        message: 'If a user account exists with that email/username, a password reset link has been sent',
+      };
+    }
+
+    // Generate reset token (32 bytes of random data)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    // Set reset token and expiry (30 minutes)
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpires = new Date(Date.now() + 30 * 60 * 1000);
+    await user.save();
+
+    // TODO: Send email with reset link containing resetToken
+    // Email should contain: ${BACKEND_BASE_URL}/auth/reset-password/${resetToken}
+
+    return {
+      message: 'Password reset link sent to email',
+      // Remove this in production - only for testing
+      _resetToken: resetToken,
+    };
+  }
+
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    const { resetToken, newPassword } = resetPasswordDto;
+
+    // Hash the provided token to match stored hash
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(resetToken)
+      .digest('hex');
+
+    // Find user with valid reset token
+    const user = await this.userModel.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: new Date() },
+    });
+
+    if (!user) {
+      throw new BadRequestException(
+        'Invalid or expired password reset token',
+      );
+    }
+
+    // Update password and clear reset token
+    user.password = newPassword;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    user.lastPasswordChangeAt = new Date();
+    await user.save();
+
+    return {
+      message: 'Password reset successfully',
+    };
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto) {
+    const { currentPassword, newPassword } = changePasswordDto;
+
+    // Find user
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Verify current password
+    const isPasswordValid = await user.comparePassword(currentPassword);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    // Update password
+    user.password = newPassword;
+    user.lastPasswordChangeAt = new Date();
+    await user.save();
+
+    return {
+      message: 'Password changed successfully',
+    };
+  }
+
+  async getAllUsers() {
+    const users = await this.userModel.find().select('-password -passwordResetToken -passwordResetExpires');
+    return {
+      message: 'Users retrieved successfully',
+      users,
+    };
+  }
+
+  async getUserById(id: string) {
+    const user = await this.userModel.findById(id).select('-password -passwordResetToken -passwordResetExpires');
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return {
+      message: 'User retrieved successfully',
+      user,
+    };
+  }
+
+  async updateUser(id: string, updateData: any) {
+    // Don't allow password updates through this endpoint
+    if (updateData.password) {
+      delete updateData.password;
+    }
+
+    const user = await this.userModel.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true, runValidators: true },
+    ).select('-password -passwordResetToken -passwordResetExpires');
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      message: 'User updated successfully',
+      user,
+    };
+  }
+
+  async deleteUser(id: string) {
+    const user = await this.userModel.findByIdAndDelete(id);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      message: 'User deleted successfully',
+    };
   }
 }
