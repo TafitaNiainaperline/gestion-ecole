@@ -40,34 +40,8 @@ export class AuthService {
 
     await newUser.save();
 
-    // Generate access token (short-lived)
-    const accessToken = this.jwtService.sign(
-      {
-        sub: newUser._id,
-        email: newUser.email,
-        username: newUser.username,
-        role: newUser.role,
-      },
-      { expiresIn: '15m' },
-    );
-
-    // Generate refresh token (long-lived)
-    const refreshToken = jwt.sign(
-      {
-        sub: String(newUser._id),
-        email: newUser.email,
-        username: newUser.username,
-      },
-      process.env.JWT_REFRESH_SECRET || 'default_refresh_secret',
-      {
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-      } as jwt.SignOptions,
-    );
-
     return {
       message: 'User registered successfully',
-      access_token: accessToken,
-      refresh_token: refreshToken,
       user: {
         id: newUser._id,
         email: newUser.email,
