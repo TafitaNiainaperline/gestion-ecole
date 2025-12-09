@@ -1,10 +1,7 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import {
-  BadRequestException,
-  ValidationPipe,
-} from '@nestjs/common';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
 import { JwtService } from '@nestjs/jwt';
 import { JwtAuthGuard } from './auth/guards/auth.guard';
@@ -45,7 +42,7 @@ async function bootstrap() {
   // Swagger configuration
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Gestion Ecole API')
-    .setDescription('Système de gestion d\'école')
+    .setDescription("Système de gestion d'école")
     .setVersion('1.0')
     .addBearerAuth(
       {
@@ -60,7 +57,10 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, swaggerConfig, {
     operationIdFactory: (controllerKey: string, methodKey: string) => {
-      const method = methodKey.replace(/([A-Z])/g, '-$1').toLowerCase().replace(/^-/, '');
+      const method = methodKey
+        .replace(/([A-Z])/g, '-$1')
+        .toLowerCase()
+        .replace(/^-/, '');
       return method;
     },
   });
