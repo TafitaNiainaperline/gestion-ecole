@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
-export class AuthGuard implements CanActivate {
+export class JwtAuthGuard implements CanActivate {
   constructor(
     private jwtService: JwtService,
     private reflector: Reflector,
@@ -38,7 +38,11 @@ export class AuthGuard implements CanActivate {
     if (!authHeader) {
       return undefined;
     }
-    const [type, token] = authHeader.split(' ');
-    return type === 'Bearer' ? token : undefined;
+    const parts = authHeader.split(' ');
+    if (parts.length !== 2) {
+      return undefined;
+    }
+    const [type, token] = parts;
+    return type.toLowerCase() === 'bearer' ? token : undefined;
   }
 }

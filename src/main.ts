@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
 import { JwtService } from '@nestjs/jwt';
-import { AuthGuard } from './auth/guards/auth.guard';
+import { JwtAuthGuard } from './auth/guards/auth.guard';
 import { RoleGuard } from './auth/guards/role.guard';
 
 async function bootstrap() {
@@ -25,6 +25,7 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: 'Content-Type, Authorization, X-Requested-With',
+    exposedHeaders: 'Authorization',
   });
 
   // Global validation pipe
@@ -66,7 +67,7 @@ async function bootstrap() {
   });
 
   // Global authentication and role-based guards
-  app.useGlobalGuards(new AuthGuard(jwtService, reflector), new RoleGuard(reflector));
+  app.useGlobalGuards(new JwtAuthGuard(jwtService, reflector), new RoleGuard(reflector));
 
   const port = process.env.APP_PORT || 6012;
   await app.listen(port);
