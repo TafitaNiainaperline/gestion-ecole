@@ -7,14 +7,17 @@ import {
   Body,
   Param,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { StudentService } from './student.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { RequireRole } from '../auth/decorators/require-role.decorator';
 import { UserRole } from '../commons/enums';
+import { RoleGuard } from '../auth/guards/role.guard';
 
 @Controller('api/students')
+@UseGuards(RoleGuard)
 export class StudentController {
   constructor(private studentService: StudentService) {}
 

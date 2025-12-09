@@ -1,9 +1,11 @@
-import { Controller, Get, Patch, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { RequireRole } from '../auth/decorators/require-role.decorator';
 import { UserRole } from '../commons/enums';
+import { RoleGuard } from '../auth/guards/role.guard';
 
 @Controller('users')
+@UseGuards(RoleGuard)
 export class UserController {
   constructor(private userService: UserService) {}
 

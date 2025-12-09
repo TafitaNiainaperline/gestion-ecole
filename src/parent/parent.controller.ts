@@ -6,14 +6,17 @@ import {
   Delete,
   Body,
   Param,
+  UseGuards,
 } from '@nestjs/common';
 import { ParentService } from './parent.service';
 import { CreateParentDto } from './dto/create-parent.dto';
 import { UpdateParentDto } from './dto/update-parent.dto';
 import { RequireRole } from '../auth/decorators/require-role.decorator';
 import { UserRole } from '../commons/enums';
+import { RoleGuard } from '../auth/guards/role.guard';
 
 @Controller('api/parents')
+@UseGuards(RoleGuard)
 export class ParentController {
   constructor(private parentService: ParentService) {}
 

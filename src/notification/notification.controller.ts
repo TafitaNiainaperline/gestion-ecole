@@ -5,14 +5,17 @@ import {
   Body,
   Param,
   Put,
+  UseGuards,
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { NotificationSchedulerService } from './notification-scheduler.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { RequireRole } from '../auth/decorators/require-role.decorator';
 import { UserRole } from '../commons/enums';
+import { RoleGuard } from '../auth/guards/role.guard';
 
 @Controller('api/notifications')
+@UseGuards(RoleGuard)
 export class NotificationController {
   constructor(
     private notificationService: NotificationService,
