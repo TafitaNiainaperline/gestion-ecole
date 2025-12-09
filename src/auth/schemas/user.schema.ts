@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import * as bcryptjs from 'bcryptjs';
+import { UserRole } from '../../commons/enums';
 
 export type UserDocument = User & Document & { comparePassword(password: string): Promise<boolean> };
 
@@ -9,11 +10,21 @@ export class User {
   @Prop({ required: true, unique: true })
   email: string;
 
+  @Prop({ required: true, unique: true })
+  username: string;
+
   @Prop({ required: true })
   name: string;
 
   @Prop({ required: true })
   password: string;
+
+  @Prop({
+    type: String,
+    enum: Object.values(UserRole),
+    default: UserRole.SECRETAIRE,
+  })
+  role: string;
 
   @Prop({ default: true })
   isActive: boolean;
