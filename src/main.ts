@@ -8,6 +8,7 @@ import {
 import { ValidationError } from 'class-validator';
 import { JwtService } from '@nestjs/jwt';
 import { AuthGuard } from './auth/guards/auth.guard';
+import { RoleGuard } from './auth/guards/role.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -64,8 +65,8 @@ async function bootstrap() {
     res.json(document);
   });
 
-  // Global authentication guard
-  app.useGlobalGuards(new AuthGuard(jwtService, reflector));
+  // Global authentication and role-based guards
+  app.useGlobalGuards(new AuthGuard(jwtService, reflector), new RoleGuard(reflector));
 
   const port = process.env.APP_PORT || 6012;
   await app.listen(port);
