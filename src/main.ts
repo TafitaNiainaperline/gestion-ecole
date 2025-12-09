@@ -4,7 +4,6 @@ import { AppModule } from './app.module';
 import {
   BadRequestException,
   ValidationPipe,
-  VersioningType,
 } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
 import { JwtService } from '@nestjs/jwt';
@@ -25,12 +24,6 @@ async function bootstrap() {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
     allowedHeaders: 'Content-Type, Authorization, X-Requested-With',
-  });
-
-  // API Versioning
-  app.enableVersioning({
-    type: VersioningType.URI,
-    prefix: 'v',
   });
 
   // Global validation pipe
@@ -76,7 +69,7 @@ async function bootstrap() {
 
   const port = process.env.APP_PORT || 6012;
   await app.listen(port);
-  console.log(`📚 API Documentation: http://localhost:${port}/ecole/api-docs`);
+  console.log(` API Documentation: http://localhost:${port}/ecole/api-docs`);
 }
 
 bootstrap();
