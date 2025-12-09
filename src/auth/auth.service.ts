@@ -108,12 +108,19 @@ export class AuthService {
   }
 
   async refreshToken(user: any) {
+    // Fetch user from database to get the role
+    const dbUser = await this.userModel.findById(user.id);
+    if (!dbUser) {
+      throw new UnauthorizedException('User not found');
+    }
+
     // Generate new access token
     const accessToken = this.jwtService.sign(
       {
-        sub: user.id,
-        email: user.email,
-        username: user.username,
+        sub: dbUser._id,
+        email: dbUser.email,
+        username: dbUser.username,
+        role: dbUser.role,
       },
       { expiresIn: '15m' },
     );

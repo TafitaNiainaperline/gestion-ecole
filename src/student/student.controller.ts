@@ -7,27 +7,24 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { StudentService } from './student.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
-import { RequireRole } from '../auth/decorators/require-role.decorator';
-import { UserRole } from '../commons/enums';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { UpdateEcolageDto } from './dto/update-ecolage.dto';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('api/students')
-@UseGuards(RoleGuard)
 export class StudentController {
   constructor(private studentService: StudentService) {}
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Post()
   async create(@Body() createStudentDto: CreateStudentDto) {
     return this.studentService.create(createStudentDto);
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Get()
   async findAll(
     @Query('classe') classe?: string,
@@ -37,31 +34,31 @@ export class StudentController {
     return this.studentService.findAll({ classe, niveau, status });
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Get('matricule/:matricule')
   async findByMatricule(@Param('matricule') matricule: string) {
     return this.studentService.findByMatricule(matricule);
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Get('classe/:classe')
   async findByClasse(@Param('classe') classe: string) {
     return this.studentService.findByClasse(classe);
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Get('niveau/:niveau')
   async findByNiveau(@Param('niveau') niveau: string) {
     return this.studentService.findByNiveau(niveau);
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.studentService.findById(id);
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Put(':id')
   async update(
     @Param('id') id: string,
@@ -70,20 +67,20 @@ export class StudentController {
     return this.studentService.update(id, updateStudentDto);
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Put(':id/ecolage')
   async updateEcolageStatus(
     @Param('id') id: string,
-    @Body() body: { month: string; status: string },
+    @Body() updateEcolageDto: UpdateEcolageDto,
   ) {
     return this.studentService.updateEcolageStatus(
       id,
-      body.month,
-      body.status,
+      updateEcolageDto.month,
+      updateEcolageDto.status,
     );
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Delete(':id')
   async delete(@Param('id') id: string) {
     return this.studentService.delete(id);

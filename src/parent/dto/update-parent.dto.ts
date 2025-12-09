@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsOptional, IsBoolean } from 'class-validator';
 
 export class UpdateParentDto {
   @ApiProperty({
@@ -6,6 +7,8 @@ export class UpdateParentDto {
     description: 'Full name',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   name?: string;
 
   @ApiProperty({
@@ -13,6 +16,8 @@ export class UpdateParentDto {
     description: 'Phone number',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   phone?: string;
 
   @ApiProperty({
@@ -20,6 +25,8 @@ export class UpdateParentDto {
     description: 'Secondary phone number',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   phoneSecondary?: string;
 
   @ApiProperty({
@@ -27,6 +34,8 @@ export class UpdateParentDto {
     description: 'Relation to student',
     required: false,
   })
+  @IsOptional()
+  @IsString()
   relation?: string;
 
   @ApiProperty({
@@ -34,5 +43,7 @@ export class UpdateParentDto {
     description: 'Is parent active',
     required: false,
   })
+  @IsOptional()
+  @IsBoolean()
   isActive?: boolean;
 }

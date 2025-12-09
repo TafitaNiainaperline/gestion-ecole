@@ -5,6 +5,9 @@ import { NotificationService } from './notification.service';
 import { NotificationSchedulerService } from './notification-scheduler.service';
 import { NotificationController } from './notification.controller';
 import { Notification, NotificationSchema } from './schemas/notification.schema';
+import { StudentModule } from '../student/student.module';
+import { SmsModule } from '../sms/sms.module';
+import { SmsLogModule } from '../sms-log/sms-log.module';
 
 @Module({
   imports: [
@@ -12,6 +15,9 @@ import { Notification, NotificationSchema } from './schemas/notification.schema'
     MongooseModule.forFeature([
       { name: Notification.name, schema: NotificationSchema },
     ]),
+    StudentModule,
+    SmsModule,
+    SmsLogModule,
   ],
   controllers: [NotificationController],
   providers: [NotificationService, NotificationSchedulerService],

@@ -8,7 +8,6 @@ import {
 import { ValidationError } from 'class-validator';
 import { JwtService } from '@nestjs/jwt';
 import { JwtAuthGuard } from './auth/guards/auth.guard';
-import { RoleGuard } from './auth/guards/role.guard';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -48,7 +47,15 @@ async function bootstrap() {
     .setTitle('Gestion Ecole API')
     .setDescription('Système de gestion d\'école')
     .setVersion('1.0')
-    .addBearerAuth()
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Enter JWT token',
+      },
+      'bearer',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig, {
@@ -66,8 +73,8 @@ async function bootstrap() {
     res.json(document);
   });
 
-  // Global authentication and role-based guards
-  app.useGlobalGuards(new JwtAuthGuard(jwtService, reflector), new RoleGuard(reflector));
+  // Global authentication guard
+  app.useGlobalGuards(new JwtAuthGuard(jwtService, reflector));
 
   const port = process.env.APP_PORT || 6012;
   await app.listen(port);

@@ -5,42 +5,38 @@ import {
   Body,
   Param,
   Put,
-  UseGuards,
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { NotificationSchedulerService } from './notification-scheduler.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
-import { RequireRole } from '../auth/decorators/require-role.decorator';
-import { UserRole } from '../commons/enums';
-import { RoleGuard } from '../auth/guards/role.guard';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('api/notifications')
-@UseGuards(RoleGuard)
 export class NotificationController {
   constructor(
     private notificationService: NotificationService,
     private schedulerService: NotificationSchedulerService,
   ) {}
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Post()
   async create(@Body() createNotificationDto: CreateNotificationDto) {
     return this.notificationService.create(createNotificationDto);
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Get()
   async findAll() {
     return this.notificationService.findAll();
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.notificationService.findById(id);
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Put(':id/status')
   async updateStatus(
     @Param('id') id: string,
@@ -49,13 +45,13 @@ export class NotificationController {
     return this.notificationService.updateStatus(id, body.status);
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Put(':id/mark-sent')
   async markAsSent(@Param('id') id: string) {
     return this.notificationService.markAsSent(id);
   }
 
-  @RequireRole(UserRole.ADMIN, UserRole.COMPTABLE, UserRole.SECRETAIRE)
+  @Public()
   @Post(':id/send-now')
   async sendNow(@Param('id') id: string) {
     return this.schedulerService.sendNow(id);

@@ -23,26 +23,34 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     try {
-      const payload = this.jwtService.verify(token, {
-        secret: process.env.JWT_SECRET || 'your-secret-key',
-      });
+      const payload = this.jwtService.verify(token);
       request.user = payload;
       return true;
-    } catch {
-      throw new UnauthorizedException('Invalid token');
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired token');
     }
   }
 
   private extractToken(request: any): string | undefined {
     const authHeader = request.headers.authorization;
+    console.log('=== TOKEN EXTRACTION DEBUG ===');
+    console.log('Request headers:', request.headers);
+    console.log('Authorization header:', authHeader);
+
     if (!authHeader) {
+      console.log('No authorization header found');
       return undefined;
     }
     const parts = authHeader.split(' ');
+    console.log('Parts:', parts);
     if (parts.length !== 2) {
+      console.log('Header does not have exactly 2 parts');
       return undefined;
     }
     const [type, token] = parts;
-    return type.toLowerCase() === 'bearer' ? token : undefined;
+    console.log('Type:', type, 'Token exists:', !!token);
+    const result = type.toLowerCase() === 'bearer' ? token : undefined;
+    console.log('Returning token:', result ? 'YES' : 'NO');
+    return result;
   }
 }
