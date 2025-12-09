@@ -7,11 +7,15 @@ import {
   Put,
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
+import { NotificationSchedulerService } from './notification-scheduler.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 
 @Controller('api/notifications')
 export class NotificationController {
-  constructor(private notificationService: NotificationService) {}
+  constructor(
+    private notificationService: NotificationService,
+    private schedulerService: NotificationSchedulerService,
+  ) {}
 
   @Post()
   async create(@Body() createNotificationDto: CreateNotificationDto) {
@@ -39,5 +43,10 @@ export class NotificationController {
   @Put(':id/mark-sent')
   async markAsSent(@Param('id') id: string) {
     return this.notificationService.markAsSent(id);
+  }
+
+  @Post(':id/send-now')
+  async sendNow(@Param('id') id: string) {
+    return this.schedulerService.sendNow(id);
   }
 }
