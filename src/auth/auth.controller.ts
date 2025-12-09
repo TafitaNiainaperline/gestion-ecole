@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Request, UseGuards, Patch, Delete, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Request, UseGuards, Patch } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -57,28 +57,5 @@ export class AuthController {
       message: 'User profile',
       user: req.user,
     };
-  }
-
-  @Get('users')
-  async getAllUsers() {
-    return this.authService.getAllUsers();
-  }
-
-  @Get('users/:id')
-  async getUserById(@Param('id') id: string) {
-    return this.authService.getUserById(id);
-  }
-
-  @Patch('users/:id')
-  async updateUser(
-    @Param('id') id: string,
-    @Body() updateData: any,
-  ) {
-    return this.authService.updateUser(id, updateData);
-  }
-
-  @Delete('users/:id')
-  async deleteUser(@Param('id') id: string) {
-    return this.authService.deleteUser(id);
   }
 }
