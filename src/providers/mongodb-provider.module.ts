@@ -14,7 +14,7 @@ import { MongooseModule } from '@nestjs/mongoose';
           uri,
           serverApi: {
             version: '1',
-            strict: true,
+            strict: false,
             deprecationErrors: true,
           },
         };
