@@ -9,6 +9,8 @@ export enum NotificationTargetType {
   CLASSE = 'CLASSE',
   INDIVIDUEL = 'INDIVIDUEL',
   TOUS = 'TOUS',
+  NIVEAU = 'NIVEAU',
+  IMPAYES = 'IMPAYES',
 }
 
 export enum NotificationStatus {
@@ -16,4 +18,5 @@ export enum NotificationStatus {
   SENDING = 'SENDING',
   SENT = 'SENT',
   FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
 }

@@ -76,4 +76,23 @@ export class SmsLogService {
       pending: logs.filter((l) => l.status === 'PENDING').length,
     };
   }
+
+  async findAll(): Promise<SmsLog[]> {
+    return this.smsLogModel
+      .find()
+      .sort({ sentAt: -1 })
+      .populate(['parentId', 'studentId']);
+  }
+
+  async getGlobalStats(): Promise<any> {
+    const logs = await this.smsLogModel.find();
+
+    return {
+      total: logs.length,
+      sent: logs.filter((l) => l.status === 'SENT').length,
+      delivered: logs.filter((l) => l.status === 'DELIVERED').length,
+      failed: logs.filter((l) => l.status === 'FAILED').length,
+      pending: logs.filter((l) => l.status === 'PENDING').length,
+    };
+  }
 }

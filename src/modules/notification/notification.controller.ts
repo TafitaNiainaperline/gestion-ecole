@@ -1,22 +1,14 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Put,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { NotificationSchedulerService } from './notification-scheduler.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
-import { Roles } from '../../commons/decorators/roles.decorator';
-import { Role } from '../../commons/enums/role.enum';
+import { SendImmediateDto } from './dto/send-immediate.dto';
+import { Public } from '../../auth/decorators/public.decorator';
 
 @ApiTags('notifications')
 @ApiBearerAuth()
 @Controller('api/notifications')
-@Roles(Role.ADMIN, Role.TEACHER)
 export class NotificationController {
   constructor(
     private notificationService: NotificationService,
@@ -31,6 +23,11 @@ export class NotificationController {
   @Get()
   async findAll() {
     return this.notificationService.findAll();
+  }
+
+  @Get('scheduled/list')
+  async findScheduled() {
+    return this.notificationService.findScheduled();
   }
 
   @Get(':id')
@@ -54,5 +51,10 @@ export class NotificationController {
   @Post(':id/send-now')
   async sendNow(@Param('id') id: string) {
     return this.schedulerService.sendNow(id);
+  }
+
+  @Post('send-immediate')
+  async sendImmediate(@Body() sendImmediateDto: SendImmediateDto) {
+    return this.schedulerService.sendImmediate(sendImmediateDto);
   }
 }
