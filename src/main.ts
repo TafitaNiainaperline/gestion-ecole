@@ -5,7 +5,7 @@ import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
 import { JwtService } from '@nestjs/jwt';
 import { JwtAuthGuard } from './auth/guards/auth.guard';
-
+import { env } from 'node:process';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
