@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document } from 'mongoose';
 import * as bcryptjs from 'bcryptjs';
-import { UserRole } from '../../commons/enums';
+import { Role } from '../../commons/enums/role.enum';
 
 export type UserDocument = User & Document & { comparePassword(password: string): Promise<boolean> };
 
@@ -21,8 +21,8 @@ export class User {
 
   @Prop({
     type: String,
-    enum: Object.values(UserRole),
-    default: UserRole.SECRETAIRE,
+    enum: Object.values(Role),
+    default: Role.STUDENT,
   })
   role: string;
 
