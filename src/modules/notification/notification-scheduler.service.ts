@@ -7,6 +7,7 @@ import { NotificationStatus } from '../../commons/enums';
 import { StudentService } from '../student/student.service';
 import { SmsService } from '../sms/sms.service';
 import { SmsLogService } from '../sms-log/sms-log.service';
+import { SendImmediateDto } from './dto/send-immediate.dto';
 
 @Injectable()
 export class NotificationSchedulerService {
@@ -271,5 +272,124 @@ export class NotificationSchedulerService {
     message = message.replace(/{status}/g, student.status || '');
 
     return message;
+  }
+
+  /**
+   * Send SMS immediately without scheduling
+   */
+  async sendImmediate(
+    sendImmediateDto: SendImmediateDto,
+  ): Promise<{ success: boolean; message: string; stats: any }> {
+    try {
+      this.logger.log('Sending immediate SMS notification');
+
+      // Create a temporary notification object for processing
+      const tempNotification = {
+        _id: 'immediate-' + Date.now(),
+        type: sendImmediateDto.type,
+        title: sendImmediateDto.title,
+        message: sendImmediateDto.message,
+        targetType: sendImmediateDto.targetType,
+        targetClasses: sendImmediateDto.targetClasses,
+        targetStudents: sendImmediateDto.targetStudents,
+      };
+
+      // Get target students
+      const targetStudents = await this.getTargetStudents(tempNotification);
+
+      this.logger.log(`Processing ${targetStudents.length} target students for immediate send`);
+
+      let successCount = 0;
+      let failureCount = 0;
+
+      // Send SMS to each student's parent
+      for (const student of targetStudents) {
+        try {
+          this.logger.log(
+            `Processing student: ${student._id} (${student.firstName} ${student.lastName})`,
+          );
+
+          const parent = student.parentId;
+
+          if (!parent) {
+            this.logger.warn(
+              `Student ${student._id} (${student.firstName} ${student.lastName}) has no parent associated`,
+            );
+            failureCount++;
+            continue;
+          }
+
+          if (!parent.phone) {
+            this.logger.warn(
+              `Parent ${parent._id} for student ${student._id} has no phone number`,
+            );
+            failureCount++;
+            continue;
+          }
+
+          this.logger.log(
+            `Sending SMS to parent ${parent.name} (${parent.phone})`,
+          );
+
+          // Build personalized message
+          const message = this.buildMessage(
+            sendImmediateDto.message,
+            parent,
+            student,
+          );
+
+          // Send SMS
+          const smsResult = await this.smsService.sendSms(parent.phone, message);
+
+          if (smsResult.success) {
+            // Create SMS log
+            await this.smsLogService.create({
+              notificationId: null, // No notification ID for immediate sends
+              notificationTitle: sendImmediateDto.title,
+              notificationType: sendImmediateDto.type,
+              parentId: parent._id,
+              studentId: student._id,
+              phoneNumber: parent.phone,
+              message,
+              status: 'SENT',
+              sentAt: new Date(),
+            });
+
+            successCount++;
+          } else {
+            failureCount++;
+            this.logger.error(`Failed to send SMS: ${smsResult.message || smsResult.error}`);
+          }
+        } catch (error) {
+          this.logger.error(
+            `Failed to send SMS for student ${student._id}: ${
+              error instanceof Error ? error.message : 'Unknown error'
+            }`,
+          );
+          failureCount++;
+        }
+      }
+
+      this.logger.log(
+        `Immediate send completed: ${successCount} sent, ${failureCount} failed`,
+      );
+
+      return {
+        success: true,
+        message: `SMS sent: ${successCount} successful, ${failureCount} failed`,
+        stats: {
+          totalRecipients: successCount + failureCount,
+          successCount,
+          failureCount,
+        },
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error sending immediate SMS: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      );
+      throw error;
+    }
   }
 }

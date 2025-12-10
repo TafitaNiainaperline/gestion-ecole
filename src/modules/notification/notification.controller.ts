@@ -9,6 +9,7 @@ import {
 import { NotificationService } from './notification.service';
 import { NotificationSchedulerService } from './notification-scheduler.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { SendImmediateDto } from './dto/send-immediate.dto';
 import { Public } from '../../auth/decorators/public.decorator';
 
 @Controller('api/notifications')
@@ -61,5 +62,11 @@ export class NotificationController {
   @Post(':id/send-now')
   async sendNow(@Param('id') id: string) {
     return this.schedulerService.sendNow(id);
+  }
+
+  @Public()
+  @Post('send-immediate')
+  async sendImmediate(@Body() sendImmediateDto: SendImmediateDto) {
+    return this.schedulerService.sendImmediate(sendImmediateDto);
   }
 }
