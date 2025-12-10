@@ -35,7 +35,7 @@ export class AppIsolationMiddleware implements NestMiddleware {
       });
 
       req.user = {
-        id: payload.id,
+        id: payload.sub,
         email: payload.email,
         role: payload.role,
       };
