@@ -2,9 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { Model } from 'mongoose';
 import { getModelToken } from '@nestjs/mongoose';
-import { Parent } from './parent/schemas/parent.schema';
-import { Student } from './student/schemas/student.schema';
-import { Classe } from './classe/schemas/classe.schema';
+import { Parent } from './modules/parent/schemas/parent.schema';
+import { Student } from './modules/student/schemas/student.schema';
+import { Classe } from './modules/classe/schemas/classe.schema';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
