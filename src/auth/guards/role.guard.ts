@@ -1,29 +1,38 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { REQUIRE_ROLE_KEY } from '../decorators/require-role.decorator';
+import { ROLES_KEY } from '../../commons/decorators/roles.decorator';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class RoleGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(
-      REQUIRE_ROLE_KEY,
+    // Check if route is public
+    const isPublic = this.reflector.getAllAndOverride<boolean>(
+      IS_PUBLIC_KEY,
       [context.getHandler(), context.getClass()],
     );
 
-    if (!requiredRoles) {
-      return true; // No role requirement, allow access
+    if (isPublic) {
+      return true;
     }
+
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
 
-    if (!user) {
-      throw new ForbiddenException('User not found in request');
+    // If roles are required and user is not present, deny access
+    if (requiredRoles && !user) {
+      throw new UnauthorizedException('No token provided');
     }
 
-    if (!requiredRoles.includes(user.role)) {
+    // If roles are required, check if user has the required role
+    if (requiredRoles && !requiredRoles.includes(user.role)) {
       throw new ForbiddenException(
         `This endpoint requires one of the following roles: ${requiredRoles.join(', ')}`,
       );
