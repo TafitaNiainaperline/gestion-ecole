@@ -31,6 +31,12 @@ export class NotificationController {
   }
 
   @Public()
+  @Get('scheduled/list')
+  async findScheduled() {
+    return this.notificationService.findScheduled();
+  }
+
+  @Public()
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.notificationService.findById(id);
