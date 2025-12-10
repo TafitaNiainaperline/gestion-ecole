@@ -1,16 +1,11 @@
-import { NestFactory, Reflector } from '@nestjs/core';
+import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { ValidationError } from 'class-validator';
-import { JwtService } from '@nestjs/jwt';
-import { JwtAuthGuard } from './auth/guards/auth.guard';
-import { env } from 'node:process';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  const jwtService = app.get(JwtService);
-  const reflector = app.get(Reflector);
 
   // API prefix
   app.setGlobalPrefix('api');
@@ -44,15 +39,7 @@ async function bootstrap() {
     .setTitle('Gestion Ecole API')
     .setDescription("Système de gestion d'école")
     .setVersion('1.0')
-    .addBearerAuth(
-      {
-        type: 'http',
-        scheme: 'bearer',
-        bearerFormat: 'JWT',
-        description: 'Enter JWT token',
-      },
-      'bearer',
-    )
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, swaggerConfig, {
@@ -66,15 +53,16 @@ async function bootstrap() {
   });
 
   SwaggerModule.setup('ecole/api-docs', app, document, {
-    swaggerOptions: { persistAuthorization: true },
+    swaggerOptions: {
+      persistAuthorization: true,
+      defaultModelsExpandDepth: 1,
+      defaultModelExpandDepth: 1,
+    },
   });
 
   app.getHttpAdapter().get('/ecole/api-docs.json', (_req, res) => {
     res.json(document);
   });
-
-  // Global authentication guard
-  app.useGlobalGuards(new JwtAuthGuard(jwtService, reflector));
 
   const port = process.env.APP_PORT || 6012;
   await app.listen(port);
