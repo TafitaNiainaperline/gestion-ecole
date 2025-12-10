@@ -3,5 +3,6 @@ export enum Role {
   TEACHER = 'TEACHER',
   PARENT = 'PARENT',
   STUDENT = 'STUDENT',
-  STAFF = 'STAFF',
+  COMPTABLE = 'COMPTABLE',
+  SECRETAIRE = 'SECRETAIRE',
 }
