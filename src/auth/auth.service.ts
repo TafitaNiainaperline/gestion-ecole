@@ -131,6 +131,44 @@ export class AuthService {
     };
   }
 
+  async refreshTokenFromBody(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token not provided');
+    }
+
+    try {
+      // Verify the refresh token
+      const payload = jwt.verify(
+        refreshToken,
+        process.env.JWT_REFRESH_SECRET || 'default_refresh_secret',
+      );
+
+      // Fetch user from database to get the role
+      const dbUser = await this.userModel.findById(payload.sub);
+      if (!dbUser) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      // Generate new access token
+      const accessToken = this.jwtService.sign(
+        {
+          sub: dbUser._id,
+          email: dbUser.email,
+          username: dbUser.username,
+          role: dbUser.role,
+        },
+        { expiresIn: '15m' },
+      );
+
+      return {
+        message: 'Token refreshed successfully',
+        access_token: accessToken,
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+  }
+
   async validateUser(id: string) {
     const user = await this.userModel.findById(id);
     if (!user) {
