@@ -1,17 +1,13 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  Put,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { NotificationSchedulerService } from './notification-scheduler.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { SendImmediateDto } from './dto/send-immediate.dto';
 import { Public } from '../../auth/decorators/public.decorator';
 
+@ApiTags('notifications')
+@ApiBearerAuth()
 @Controller('api/notifications')
 export class NotificationController {
   constructor(
@@ -19,31 +15,26 @@ export class NotificationController {
     private schedulerService: NotificationSchedulerService,
   ) {}
 
-  @Public()
   @Post()
   async create(@Body() createNotificationDto: CreateNotificationDto) {
     return this.notificationService.create(createNotificationDto);
   }
 
-  @Public()
   @Get()
   async findAll() {
     return this.notificationService.findAll();
   }
 
-  @Public()
   @Get('scheduled/list')
   async findScheduled() {
     return this.notificationService.findScheduled();
   }
 
-  @Public()
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.notificationService.findById(id);
   }
 
-  @Public()
   @Put(':id/status')
   async updateStatus(
     @Param('id') id: string,
@@ -52,19 +43,16 @@ export class NotificationController {
     return this.notificationService.updateStatus(id, body.status);
   }
 
-  @Public()
   @Put(':id/mark-sent')
   async markAsSent(@Param('id') id: string) {
     return this.notificationService.markAsSent(id);
   }
 
-  @Public()
   @Post(':id/send-now')
   async sendNow(@Param('id') id: string) {
     return this.schedulerService.sendNow(id);
   }
 
-  @Public()
   @Post('send-immediate')
   async sendImmediate(@Body() sendImmediateDto: SendImmediateDto) {
     return this.schedulerService.sendImmediate(sendImmediateDto);
