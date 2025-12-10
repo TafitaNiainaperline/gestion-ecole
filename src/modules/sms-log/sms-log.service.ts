@@ -95,4 +95,145 @@ export class SmsLogService {
       pending: logs.filter((l) => l.status === 'PENDING').length,
     };
   }
+
+  async getRecentNotifications(limit: number = 10): Promise<any[]> {
+    // Group by notificationId/notificationTitle and get recent notifications
+    const logs = await this.smsLogModel
+      .find({ status: 'SENT' })
+      .sort({ sentAt: -1 })
+      .limit(100)
+      .populate(['parentId', 'studentId']);
+
+    // Group by notification (using title and type as key)
+    const grouped = new Map<string, any>();
+
+    logs.forEach((log) => {
+      const key = `${log.notificationTitle || 'Sans titre'}_${log.notificationType || 'CUSTOM'}_${
+        log.sentAt ? new Date(log.sentAt).toISOString().slice(0, 16) : 'unknown'
+      }`;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          id: log._id.toString(),
+          type: log.notificationType || 'CUSTOM',
+          title: log.notificationTitle || 'Sans titre',
+          sentAt: log.sentAt,
+          count: 0,
+          recipients: new Set(),
+        });
+      }
+
+      const entry = grouped.get(key);
+      entry.count++;
+      if (log.parentId && typeof log.parentId === 'object') {
+        entry.recipients.add((log.parentId as any).name || 'Inconnu');
+      }
+    });
+
+    // Convert to array and format
+    const notifications = Array.from(grouped.values())
+      .map((notif) => ({
+        id: notif.id,
+        type: notif.type,
+        destinataires: notif.title,
+        nombre: notif.count,
+        date: this.formatRelativeTime(notif.sentAt),
+      }))
+      .slice(0, limit);
+
+    return notifications;
+  }
+
+  private formatRelativeTime(date: Date | undefined): string {
+    if (!date) return 'Inconnu';
+
+    const now = new Date();
+    const diffMs = now.getTime() - new Date(date).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "À l'instant";
+    if (diffMins < 60) return `Il y a ${diffMins}min`;
+    if (diffHours < 24) return `Il y a ${diffHours}h`;
+    if (diffDays === 1) return 'Hier';
+    if (diffDays < 7) return `Il y a ${diffDays}j`;
+    return new Date(date).toLocaleDateString('fr-FR');
+  }
+
+  async getHistory(): Promise<any[]> {
+    // Get all SMS logs sorted by date
+    const logs = await this.smsLogModel
+      .find({ status: 'SENT' })
+      .sort({ sentAt: -1 })
+      .populate(['parentId', 'studentId']);
+
+    // Group by notification campaign (using title, type, and rounded time)
+    const grouped = new Map<string, any>();
+
+    logs.forEach((log) => {
+      // Create a key for grouping (notification title + type + hour)
+      const sentAtRounded = log.sentAt
+        ? new Date(log.sentAt).toISOString().slice(0, 13) // Group by hour
+        : 'unknown';
+      const key = `${log.notificationTitle || 'Sans titre'}_${log.notificationType || 'CUSTOM'}_${sentAtRounded}`;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          id: log._id.toString(),
+          notificationTitle: log.notificationTitle || 'Sans titre',
+          notificationType: log.notificationType || 'CUSTOM',
+          message: log.message,
+          sentAt: log.sentAt,
+          phones: new Set<string>(),
+          successCount: 0,
+          failedCount: 0,
+          totalCount: 0,
+        });
+      }
+
+      const entry = grouped.get(key);
+      entry.totalCount++;
+
+      if (log.status === 'SENT') {
+        entry.successCount++;
+      } else if (log.status === 'FAILED') {
+        entry.failedCount++;
+      }
+
+      // Add phone number
+      if (log.phoneNumber) {
+        entry.phones.add(log.phoneNumber);
+      }
+    });
+
+    // Convert to array and format for frontend
+    const history = Array.from(grouped.values()).map((campaign, index) => {
+      const totalCount = campaign.totalCount;
+      const successCount = campaign.successCount;
+      const failedCount = campaign.failedCount;
+
+      let status = 'SENT';
+      if (failedCount === totalCount) {
+        status = 'FAILED';
+      } else if (failedCount > 0) {
+        status = 'PARTIAL';
+      }
+
+      return {
+        id: `${campaign.id}-${index}`,
+        phones: Array.from(campaign.phones),
+        message: campaign.message,
+        sentAt: campaign.sentAt,
+        status,
+        notificationType: campaign.notificationType,
+        destinatairesInfo: campaign.notificationTitle,
+        successCount,
+        failedCount,
+        totalCount,
+      };
+    });
+
+    return history;
+  }
 }

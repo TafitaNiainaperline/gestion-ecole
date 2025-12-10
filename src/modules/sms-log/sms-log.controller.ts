@@ -19,6 +19,18 @@ export class SmsLogController {
   }
 
   @Public()
+  @Get('recent')
+  async getRecentNotifications() {
+    return this.smsLogService.getRecentNotifications(10);
+  }
+
+  @Public()
+  @Get('history')
+  async getHistory() {
+    return this.smsLogService.getHistory();
+  }
+
+  @Public()
   @Get('notification/:notificationId')
   async findByNotificationId(@Param('notificationId') notificationId: string) {
     return this.smsLogService.findByNotificationId(notificationId);
