@@ -15,26 +15,30 @@ export class NotificationController {
     private schedulerService: NotificationSchedulerService,
   ) {}
 
+  @Public()
   @Post()
   async create(@Body() createNotificationDto: CreateNotificationDto) {
     return this.notificationService.create(createNotificationDto);
   }
 
+  @Public()
   @Get()
   async findAll() {
     return this.notificationService.findAll();
   }
 
+  @Public()
   @Get('scheduled/list')
   async findScheduled() {
     return this.notificationService.findScheduled();
   }
-
+  @Public()
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.notificationService.findById(id);
   }
 
+  @Public()
   @Put(':id/status')
   async updateStatus(
     @Param('id') id: string,
@@ -43,16 +47,19 @@ export class NotificationController {
     return this.notificationService.updateStatus(id, body.status);
   }
 
+  @Public()
   @Put(':id/mark-sent')
   async markAsSent(@Param('id') id: string) {
     return this.notificationService.markAsSent(id);
   }
 
+  @Public()
   @Post(':id/send-now')
   async sendNow(@Param('id') id: string) {
     return this.schedulerService.sendNow(id);
   }
 
+  @Public()
   @Post('send-immediate')
   async sendImmediate(@Body() sendImmediateDto: SendImmediateDto) {
     return this.schedulerService.sendImmediate(sendImmediateDto);
