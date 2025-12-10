@@ -6,37 +6,38 @@ import {
   Param,
   Put,
 } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationService } from './notification.service';
 import { NotificationSchedulerService } from './notification-scheduler.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
-import { Public } from '../../auth/decorators/public.decorator';
+import { Roles } from '../../commons/decorators/roles.decorator';
+import { Role } from '../../commons/enums/role.enum';
 
+@ApiTags('notifications')
+@ApiBearerAuth()
 @Controller('api/notifications')
+@Roles(Role.ADMIN, Role.TEACHER)
 export class NotificationController {
   constructor(
     private notificationService: NotificationService,
     private schedulerService: NotificationSchedulerService,
   ) {}
 
-  @Public()
   @Post()
   async create(@Body() createNotificationDto: CreateNotificationDto) {
     return this.notificationService.create(createNotificationDto);
   }
 
-  @Public()
   @Get()
   async findAll() {
     return this.notificationService.findAll();
   }
 
-  @Public()
   @Get(':id')
   async findById(@Param('id') id: string) {
     return this.notificationService.findById(id);
   }
 
-  @Public()
   @Put(':id/status')
   async updateStatus(
     @Param('id') id: string,
@@ -45,13 +46,11 @@ export class NotificationController {
     return this.notificationService.updateStatus(id, body.status);
   }
 
-  @Public()
   @Put(':id/mark-sent')
   async markAsSent(@Param('id') id: string) {
     return this.notificationService.markAsSent(id);
   }
 
-  @Public()
   @Post(':id/send-now')
   async sendNow(@Param('id') id: string) {
     return this.schedulerService.sendNow(id);
