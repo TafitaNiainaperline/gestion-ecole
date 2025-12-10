@@ -1,19 +1,19 @@
 import { Module } from '@nestjs/common';
-import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigsModule } from './configs';
+import { MongodbProviderModule } from './providers';
 import { AuthModule } from './auth/auth.module';
-import { UserModule } from './user/user.module';
-import { SmsModule } from './sms/sms.module';
-import { StudentModule } from './student/student.module';
-import { ParentModule } from './parent/parent.module';
-import { NotificationModule } from './notification/notification.module';
-import { SmsLogModule } from './sms-log/sms-log.module';
-import { ClasseModule } from './classe/classe.module';
+import { UserModule } from './modules/user/user.module';
+import { SmsModule } from './modules/sms/sms.module';
+import { StudentModule } from './modules/student/student.module';
+import { ParentModule } from './modules/parent/parent.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { SmsLogModule } from './modules/sms-log/sms-log.module';
+import { ClasseModule } from './modules/classe/classe.module';
 
 @Module({
   imports: [
-    MongooseModule.forRoot(
-      process.env.DATABASE_MONGO_URI || 'mongodb://localhost:27017/ecole',
-    ),
+    ConfigsModule,
+    MongodbProviderModule,
     AuthModule,
     UserModule,
     SmsModule,
