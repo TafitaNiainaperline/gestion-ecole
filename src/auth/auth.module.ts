@@ -7,6 +7,7 @@ import { AuthController } from './auth.controller';
 import { User, UserSchema } from './schemas/user.schema';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { AppIsolationMiddleware } from './middlewares/app-isolation.middleware';
 
 @Module({
   imports: [
@@ -17,8 +18,8 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
     }),
     PassportModule,
   ],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
+  providers: [AuthService, JwtStrategy, JwtRefreshStrategy, AppIsolationMiddleware],
   controllers: [AuthController],
-  exports: [AuthService],
+  exports: [AuthService, AppIsolationMiddleware, JwtModule],
 })
 export class AuthModule {}
