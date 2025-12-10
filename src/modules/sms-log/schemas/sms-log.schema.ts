@@ -6,8 +6,14 @@ export type SmsLogDocument = SmsLog & Document;
 
 @Schema({ timestamps: true })
 export class SmsLog {
-  @Prop({ type: Types.ObjectId, ref: 'Notification', required: true })
-  notificationId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'Notification' })
+  notificationId?: Types.ObjectId;
+
+  @Prop()
+  notificationTitle?: string;
+
+  @Prop()
+  notificationType?: string;
 
   @Prop({ type: Types.ObjectId, ref: 'Parent', required: true })
   parentId: Types.ObjectId;

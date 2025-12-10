@@ -20,6 +20,14 @@ export class NotificationService {
     return this.notificationModel.find().populate('createdBy');
   }
 
+  async findScheduled(): Promise<Notification[]> {
+    // Only return notifications that are DRAFT (not sent yet)
+    return this.notificationModel
+      .find({ status: 'DRAFT' })
+      .sort({ scheduledAt: 1 })
+      .populate('createdBy');
+  }
+
   async findById(id: string): Promise<Notification> {
     const notification = await this.notificationModel.findById(id).populate('createdBy');
 
