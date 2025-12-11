@@ -1,10 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SmsLog, SmsLogDocument } from './schemas/sms-log.schema';
 
 @Injectable()
 export class SmsLogService {
+  private readonly logger = new Logger(SmsLogService.name);
+
   constructor(
     @InjectModel(SmsLog.name) private smsLogModel: Model<SmsLogDocument>,
   ) {}
@@ -15,7 +17,9 @@ export class SmsLogService {
   }
 
   async findByNotificationId(notificationId: string): Promise<SmsLog[]> {
-    return this.smsLogModel.find({ notificationId }).populate(['parentId', 'studentId']);
+    return this.smsLogModel
+      .find({ notificationId })
+      .populate(['parentId', 'studentId']);
   }
 
   async findById(id: string): Promise<SmsLog> {
@@ -240,15 +244,70 @@ export class SmsLogService {
    * Update SMS log status by messageId (from external SMS API)
    */
   async updateStatusByMessageId(messageId: string, status: string, data?: any): Promise<SmsLog | null> {
+    this.logger.debug(`🔍 Searching for SMS log with smsServerId: ${messageId}`);
+
     const updateData: any = { status };
     if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
     if (status === 'SENT') updateData.sentAt = new Date();
     if (status === 'DELIVERED') updateData.deliveredAt = new Date();
+
+    // Mettre à jour le smsServerId avec le nouveau messageId
+    updateData.smsServerId = messageId;
+
     const smsLog = await this.smsLogModel.findOneAndUpdate(
       { smsServerId: messageId },
       updateData,
       { new: true },
     );
+
+    if (smsLog) {
+      this.logger.debug(`✅ Found and updated SMS log: ${(smsLog as any)._id}`);
+    } else {
+      this.logger.warn(`❌ No SMS log found with smsServerId: ${messageId}`);
+      // List all recent SMS logs to help debug
+      const recentLogs = await this.smsLogModel.find().sort({ createdAt: -1 }).limit(5).select('_id smsServerId phoneNumber status createdAt');
+      this.logger.debug(`📋 Recent SMS logs: ${JSON.stringify(recentLogs)}`);
+    }
+
+    return smsLog;
+  }
+
+  /**
+   * Update SMS log status by phone number (fallback when messageId doesn't match)
+   * Used when the external API changes the messageId between queuing and sending
+   */
+  async updateStatusByPhoneNumber(phone: string, status: string, messageId: string, data?: any): Promise<SmsLog | null> {
+    this.logger.debug(`🔍 Searching for SMS log by phone number: ${phone}`);
+
+    const updateData: any = {
+      status,
+      smsServerId: messageId, // Update with the new messageId from broadcast
+    };
+    if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
+    if (status === 'SENT') updateData.sentAt = new Date();
+    if (status === 'DELIVERED') updateData.deliveredAt = new Date();
+
+    // Find the most recent PENDING SMS log for this phone number (within last 2 minutes)
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const smsLog = await this.smsLogModel.findOneAndUpdate(
+      {
+        phoneNumber: phone,
+        status: 'PENDING',
+        createdAt: { $gte: twoMinutesAgo },
+      },
+      updateData,
+      {
+        new: true,
+        sort: { createdAt: -1 }, // Get the most recent one
+      },
+    );
+
+    if (smsLog) {
+      this.logger.log(`✅ Found SMS log by phone number and updated: ${(smsLog as any)._id}`);
+    } else {
+      this.logger.warn(`❌ No recent PENDING SMS log found for phone: ${phone}`);
+    }
+
     return smsLog;
   }
   /**

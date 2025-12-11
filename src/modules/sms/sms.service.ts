@@ -54,6 +54,10 @@ export class SmsService {
         }),
       });
       const data = await response.json();
+
+      // 🔍 LOG: Log la réponse complète de l'API
+      this.logger.log(`📥 Full API Response: ${JSON.stringify(data)}`);
+
       if (!response.ok) {
         this.logger.error(`SMS API error: ${JSON.stringify(data)}`);
         return {

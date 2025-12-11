@@ -151,7 +151,7 @@ export class SmsSocketClientService implements OnModuleInit, OnModuleDestroy {
 
       // updatedSms._id correspond au messageId retourné lors de l'envoi
       // et stocké dans notre champ smsServerId
-      const updatedLog = await this.smsLogService.updateStatusByMessageId(
+      let updatedLog = await this.smsLogService.updateStatusByMessageId(
         updatedSms._id, // messageId de l'API externe
         mappedStatus,
         {
@@ -159,6 +159,40 @@ export class SmsSocketClientService implements OnModuleInit, OnModuleDestroy {
             updatedSms.status === 'failed' ? 'SMS delivery failed' : undefined,
         },
       );
+
+      // FALLBACK: Si le messageId ne correspond pas (l'API externe change l'ID),
+      // essayer de trouver par numéro de téléphone
+      if (!updatedLog) {
+        this.logger.log(
+          `🔄 Trying fallback: searching by phone number ${updatedSms.phone}`,
+        );
+
+        // Essayer avec plusieurs formats de numéro (avec et sans +261)
+        const phoneFormats = [
+          updatedSms.phone, // Format original (ex: "0344426300")
+          `+261${updatedSms.phone.substring(1)}`, // Format avec +261 (ex: "+261344426300")
+          updatedSms.phone.replace(/^\+261/, '0'), // Au cas où il y aurait +261, le remplacer par 0
+        ];
+
+        for (const phoneFormat of phoneFormats) {
+          updatedLog = await this.smsLogService.updateStatusByPhoneNumber(
+            phoneFormat,
+            mappedStatus,
+            updatedSms._id, // Nouveau messageId pour mise à jour
+            {
+              errorMessage:
+                updatedSms.status === 'failed'
+                  ? 'SMS delivery failed'
+                  : undefined,
+            },
+          );
+
+          if (updatedLog) {
+            this.logger.log(`✅ Found with phone format: ${phoneFormat}`);
+            break;
+          }
+        }
+      }
 
       if (updatedLog) {
         // Emit status update to connected frontend clients
