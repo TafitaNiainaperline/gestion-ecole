@@ -8,14 +8,13 @@ import { ConfigService } from '@nestjs/config';
 import { io, Socket } from 'socket.io-client';
 import { SmsLogService } from '../sms-log/sms-log.service';
 import { SmsGateway, SmsStatusUpdate } from './gateways/sms.gateway';
-// Structure exacte renvoyée par l'API externe
 interface SmsStatusBroadcast {
   received?: boolean;
   updatedSms: {
-    _id: string; // ID du SMS dans l'API externe
+    _id: string;
     phone: string;
-    message: string; // Contenu du SMS
-    status: string; // Peut être 'draft' | 'pending' | 'received' | 'failed' | 'SENT' | 'FAILED' | etc.
+    message: string;
+    status: string;
     isDraft: boolean;
     projectId?: string;
     secretId?: string;
@@ -137,20 +136,17 @@ export class SmsSocketClientService implements OnModuleInit, OnModuleDestroy {
       }
 
       // Map external status to our status enum
-      // L'API peut envoyer le statut en minuscules OU en majuscules
       const statusLower = updatedSms.status.toLowerCase();
       const statusMap: Record<string, string> = {
         pending: 'PENDING',
-        received: 'SENT', // Le mobile confirme que le SMS a été envoyé
-        sent: 'SENT', // Parfois l'API envoie déjà en majuscules
+        received: 'SENT',
+        sent: 'SENT',
         failed: 'FAILED',
         draft: 'PENDING',
       };
 
       const mappedStatus = statusMap[statusLower] || 'PENDING';
 
-      // updatedSms._id correspond au messageId retourné lors de l'envoi
-      // et stocké dans notre champ smsServerId
       let updatedLog = await this.smsLogService.updateStatusByMessageId(
         updatedSms._id, // messageId de l'API externe
         mappedStatus,
@@ -160,25 +156,22 @@ export class SmsSocketClientService implements OnModuleInit, OnModuleDestroy {
         },
       );
 
-      // FALLBACK: Si le messageId ne correspond pas (l'API externe change l'ID),
-      // essayer de trouver par numéro de téléphone
       if (!updatedLog) {
         this.logger.log(
           `🔄 Trying fallback: searching by phone number ${updatedSms.phone}`,
         );
 
-        // Essayer avec plusieurs formats de numéro (avec et sans +261)
         const phoneFormats = [
-          updatedSms.phone, // Format original (ex: "0344426300")
-          `+261${updatedSms.phone.substring(1)}`, // Format avec +261 (ex: "+261344426300")
-          updatedSms.phone.replace(/^\+261/, '0'), // Au cas où il y aurait +261, le remplacer par 0
+          updatedSms.phone,
+          `+261${updatedSms.phone.substring(1)}`,
+          updatedSms.phone.replace(/^\+261/, '0'),
         ];
 
         for (const phoneFormat of phoneFormats) {
           updatedLog = await this.smsLogService.updateStatusByPhoneNumber(
             phoneFormat,
             mappedStatus,
-            updatedSms._id, // Nouveau messageId pour mise à jour
+            updatedSms._id,
             {
               errorMessage:
                 updatedSms.status === 'failed'

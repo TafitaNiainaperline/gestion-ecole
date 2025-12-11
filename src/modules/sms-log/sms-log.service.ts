@@ -23,7 +23,9 @@ export class SmsLogService {
   }
 
   async findById(id: string): Promise<SmsLog> {
-    const smsLog = await this.smsLogModel.findById(id).populate(['parentId', 'studentId']);
+    const smsLog = await this.smsLogModel
+      .findById(id)
+      .populate(['parentId', 'studentId']);
 
     if (!smsLog) {
       throw new NotFoundException(`SmsLog with ID ${id} not found`);
@@ -240,11 +242,15 @@ export class SmsLogService {
 
     return history;
   }
-  /**
-   * Update SMS log status by messageId (from external SMS API)
-   */
-  async updateStatusByMessageId(messageId: string, status: string, data?: any): Promise<SmsLog | null> {
-    this.logger.debug(`🔍 Searching for SMS log with smsServerId: ${messageId}`);
+
+  async updateStatusByMessageId(
+    messageId: string,
+    status: string,
+    data?: any,
+  ): Promise<SmsLog | null> {
+    this.logger.debug(
+      `🔍 Searching for SMS log with smsServerId: ${messageId}`,
+    );
 
     const updateData: any = { status };
     if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
@@ -265,18 +271,23 @@ export class SmsLogService {
     } else {
       this.logger.warn(`❌ No SMS log found with smsServerId: ${messageId}`);
       // List all recent SMS logs to help debug
-      const recentLogs = await this.smsLogModel.find().sort({ createdAt: -1 }).limit(5).select('_id smsServerId phoneNumber status createdAt');
+      const recentLogs = await this.smsLogModel
+        .find()
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('_id smsServerId phoneNumber status createdAt');
       this.logger.debug(`📋 Recent SMS logs: ${JSON.stringify(recentLogs)}`);
     }
 
     return smsLog;
   }
 
-  /**
-   * Update SMS log status by phone number (fallback when messageId doesn't match)
-   * Used when the external API changes the messageId between queuing and sending
-   */
-  async updateStatusByPhoneNumber(phone: string, status: string, messageId: string, data?: any): Promise<SmsLog | null> {
+  async updateStatusByPhoneNumber(
+    phone: string,
+    status: string,
+    messageId: string,
+    data?: any,
+  ): Promise<SmsLog | null> {
     this.logger.debug(`🔍 Searching for SMS log by phone number: ${phone}`);
 
     const updateData: any = {
@@ -303,9 +314,13 @@ export class SmsLogService {
     );
 
     if (smsLog) {
-      this.logger.log(`✅ Found SMS log by phone number and updated: ${(smsLog as any)._id}`);
+      this.logger.log(
+        `✅ Found SMS log by phone number and updated: ${(smsLog as any)._id}`,
+      );
     } else {
-      this.logger.warn(`❌ No recent PENDING SMS log found for phone: ${phone}`);
+      this.logger.warn(
+        `❌ No recent PENDING SMS log found for phone: ${phone}`,
+      );
     }
 
     return smsLog;
