@@ -2,7 +2,7 @@ import { Controller, Get, Param } from '@nestjs/common';
 import { SmsLogService } from './sms-log.service';
 import { Public } from '../../auth/decorators/public.decorator';
 
-@Controller('api/sms-logs')
+@Controller('sms-logs')
 export class SmsLogController {
   constructor(private smsLogService: SmsLogService) {}
 

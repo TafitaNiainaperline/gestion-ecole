@@ -236,4 +236,25 @@ export class SmsLogService {
 
     return history;
   }
+  /**
+   * Update SMS log status by messageId (from external SMS API)
+   */
+  async updateStatusByMessageId(messageId: string, status: string, data?: any): Promise<SmsLog | null> {
+    const updateData: any = { status };
+    if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
+    if (status === 'SENT') updateData.sentAt = new Date();
+    if (status === 'DELIVERED') updateData.deliveredAt = new Date();
+    const smsLog = await this.smsLogModel.findOneAndUpdate(
+      { smsServerId: messageId },
+      updateData,
+      { new: true },
+    );
+    return smsLog;
+  }
+  /**
+   * Find SMS logs by smsServerId (messageId from external API)
+   */
+  async findByMessageId(messageId: string): Promise<SmsLog | null> {
+    return this.smsLogModel.findOne({ smsServerId: messageId });
+  }
 }
