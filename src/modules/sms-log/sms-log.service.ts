@@ -1,7 +1,8 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SmsLog, SmsLogDocument } from './schemas/sms-log.schema';
+import { SmsService } from '../sms/sms.service';
 
 @Injectable()
 export class SmsLogService {
@@ -9,6 +10,8 @@ export class SmsLogService {
 
   constructor(
     @InjectModel(SmsLog.name) private smsLogModel: Model<SmsLogDocument>,
+    @Inject(forwardRef(() => SmsService))
+    private smsService: SmsService,
   ) {}
 
   async create(smsLogData: any): Promise<SmsLog> {
@@ -69,6 +72,13 @@ export class SmsLogService {
 
   async findPending(): Promise<SmsLog[]> {
     return this.smsLogModel.find({ status: 'PENDING', retryCount: { $lt: 3 } });
+  }
+
+  async findAllFailed(): Promise<SmsLogDocument[]> {
+    return this.smsLogModel
+      .find({ status: 'FAILED' })
+      .populate(['parentId', 'studentId'])
+      .sort({ createdAt: -1 });
   }
 
   async getStats(notificationId: string): Promise<any> {
@@ -330,5 +340,125 @@ export class SmsLogService {
    */
   async findByMessageId(messageId: string): Promise<SmsLog | null> {
     return this.smsLogModel.findOne({ smsServerId: messageId });
+  }
+
+  /**
+   * Retry sending a single failed SMS
+   */
+  async retrySingleSms(smsLogId: string): Promise<{ success: boolean; message: string; smsLog?: SmsLog }> {
+    try {
+      const smsLog = await this.smsLogModel.findById(smsLogId).populate(['parentId', 'studentId']);
+
+      if (!smsLog) {
+        return {
+          success: false,
+          message: 'SMS log not found',
+        };
+      }
+
+      if (smsLog.status !== 'FAILED') {
+        return {
+          success: false,
+          message: `Cannot retry SMS with status: ${smsLog.status}. Only FAILED SMS can be retried.`,
+        };
+      }
+
+      this.logger.log(`🔄 Retrying SMS ${smsLogId} to ${smsLog.phoneNumber}`);
+
+      // Resend the SMS
+      const smsResult = await this.smsService.sendSms(smsLog.phoneNumber, smsLog.message);
+
+      // Increment retry count
+      await this.incrementRetryCount(smsLogId);
+
+      // Update SMS log with result
+      const updatedSmsLog = await this.smsLogModel.findByIdAndUpdate(
+        smsLogId,
+        {
+          status: smsResult.success ? 'PENDING' : 'FAILED',
+          smsServerId: smsResult.messageId || smsLog.smsServerId,
+          errorMessage: smsResult.success ? null : (smsResult.error || smsResult.message),
+        },
+        { new: true },
+      );
+
+      if (smsResult.success) {
+        this.logger.log(`✅ SMS ${smsLogId} retried successfully`);
+        return {
+          success: true,
+          message: 'SMS retried successfully and is now PENDING',
+          smsLog: updatedSmsLog as SmsLog,
+        };
+      } else {
+        this.logger.warn(`❌ SMS ${smsLogId} retry failed: ${smsResult.error || smsResult.message}`);
+        return {
+          success: false,
+          message: `SMS retry failed: ${smsResult.error || smsResult.message}`,
+          smsLog: updatedSmsLog as SmsLog,
+        };
+      }
+    } catch (error) {
+      this.logger.error(`Error retrying SMS ${smsLogId}:`, error);
+      return {
+        success: false,
+        message: `Error retrying SMS: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  /**
+   * Retry all failed SMS
+   */
+  async retryAllFailed(): Promise<{ success: boolean; message: string; results: any }> {
+    try {
+      const failedSms = await this.findAllFailed();
+
+      if (failedSms.length === 0) {
+        return {
+          success: true,
+          message: 'No failed SMS to retry',
+          results: {
+            total: 0,
+            retried: 0,
+            stillFailed: 0,
+          },
+        };
+      }
+
+      this.logger.log(`🔄 Retrying ${failedSms.length} failed SMS`);
+
+      let retriedSuccessfully = 0;
+      let stillFailed = 0;
+
+      for (const sms of failedSms) {
+        const result = await this.retrySingleSms(sms._id.toString());
+        if (result.success) {
+          retriedSuccessfully++;
+        } else {
+          stillFailed++;
+        }
+      }
+
+      return {
+        success: true,
+        message: `Retry completed: ${retriedSuccessfully} succeeded, ${stillFailed} still failed`,
+        results: {
+          total: failedSms.length,
+          retried: retriedSuccessfully,
+          stillFailed,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Error retrying all failed SMS:', error);
+      return {
+        success: false,
+        message: `Error retrying failed SMS: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        results: {
+          total: 0,
+          retried: 0,
+          stillFailed: 0,
+        },
+      };
+    }
   }
 }
