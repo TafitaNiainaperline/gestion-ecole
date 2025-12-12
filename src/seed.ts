@@ -48,10 +48,10 @@ async function bootstrap() {
   }
 
   const classes = await classeModel.insertMany(classesData);
-  console.log(`✅ ${classes.length} classes créées\n`);
+  console.log(` ${classes.length} classes créées\n`);
 
   // Créer les parents
-  console.log('👨‍👩‍👧‍👦 Création des parents...');
+  console.log(' Création des parents...');
   const firstNames = ['Marie', 'Paul', 'Jeanne', 'Pierre', 'Anne', 'Fara', 'Jean', 'Sophie', 'Vincent', 'Nathalie', 'Jacques', 'Isabelle', 'Michel', 'Christine', 'François', 'Michèle', 'Philippe', 'Jacqueline', 'Alain', 'Monique'];
   const lastNames = ['RAKOTO', 'RABE', 'ANDRIA', 'RASOA', 'RANDRIA', 'RASOLOFO', 'RAZAFY', 'RAJAONA', 'RANDRIANAMPOINIMERINA', 'ANDRIANAMPOINIMERINA', 'RATSIMIHAFOTSAHAVOLA', 'RAZAFINDRATSIMANDROSO', 'RATSIMBA', 'RAMIANDRISOA', 'RANDRIANASOLO', 'RATSIFANDRIHAMANANA', 'RAKOTOMALALA', 'RAZAFINDRAMIADANA', 'RAMANANTSOA', 'RATSIVALAKA'];
   const relations = ['MERE', 'PERE'];
@@ -69,7 +69,7 @@ async function bootstrap() {
   }
 
   const parents = await parentModel.insertMany(parentsData);
-  console.log(`✅ ${parents.length} parents créés\n`);
+  console.log(` ${parents.length} parents créés\n`);
 
   // Créer les étudiants
   console.log('👨‍🎓 Création des étudiants...');
@@ -103,10 +103,10 @@ async function bootstrap() {
   }
 
   const students = await studentModel.insertMany(studentsData);
-  console.log(`✅ ${students.length} étudiants créés\n`);
+  console.log(` ${students.length} étudiants créés\n`);
 
-  console.log('🎉 Seeding terminé avec succès!\n');
-  console.log('📊 Résumé:');
+  console.log(' Seeding terminé avec succès!\n');
+  console.log(' Résumé:');
   console.log(`   - ${classes.length} classes`);
   console.log(`   - ${parents.length} parents`);
   console.log(`   - ${students.length} étudiants`);
