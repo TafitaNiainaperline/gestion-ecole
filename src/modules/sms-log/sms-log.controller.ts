@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Param, Post } from '@nestjs/common';
 import { SmsLogService } from './sms-log.service';
 import { Public } from '../../auth/decorators/public.decorator';
 
@@ -31,6 +31,18 @@ export class SmsLogController {
   }
 
   @Public()
+  @Get('failed')
+  async getAllFailed() {
+    return this.smsLogService.findAllFailed();
+  }
+
+  @Public()
+  @Post('retry-all-failed')
+  async retryAllFailed() {
+    return this.smsLogService.retryAllFailed();
+  }
+
+  @Public()
   @Get('notification/:notificationId')
   async findByNotificationId(@Param('notificationId') notificationId: string) {
     return this.smsLogService.findByNotificationId(notificationId);
@@ -40,6 +52,12 @@ export class SmsLogController {
   @Get('notification/:notificationId/stats')
   async getNotificationStats(@Param('notificationId') notificationId: string) {
     return this.smsLogService.getStats(notificationId);
+  }
+
+  @Public()
+  @Post(':id/retry')
+  async retrySingleSms(@Param('id') id: string) {
+    return this.smsLogService.retrySingleSms(id);
   }
 
   @Public()
