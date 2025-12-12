@@ -65,20 +65,10 @@ export class SmsSocketClientService implements OnModuleInit, OnModuleDestroy {
       reconnectionAttempts: Infinity,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
-      // IMPORTANT: L'API externe exige phoneId et phoneName dans les query params
-      // Notre backend n'est pas un téléphone, mais un listener, donc on utilise des valeurs fixes
+      // Connect as API client (not as phone device)
       query: {
-        phoneId: `listener_${this.projectId}`,
-        phoneName: 'Backend SMS Listener',
-        codeSms: this.secretId,
-      },
-      auth: {
-        'x-secret-id': this.secretId,
-        'x-project-id': this.projectId,
-      },
-      extraHeaders: {
-        'x-secret-id': this.secretId,
-        'x-project-id': this.projectId,
+        projectId: this.projectId,
+        secretId: this.secretId,
       },
     });
 
@@ -86,7 +76,7 @@ export class SmsSocketClientService implements OnModuleInit, OnModuleDestroy {
       this.logger.log('✓ Connected to external SMS API for status updates');
       this.logger.log(`Socket ID: ${this.socket?.id}`);
       this.logger.log(
-        `Query params: phoneId=${`listener_${this.projectId}`}, phoneName=Backend SMS Listener`,
+        `Query params: projectId=${this.projectId}, secretId=${this.secretId ? '***' + this.secretId.slice(-8) : 'missing'}`,
       );
     });
     this.socket.on('disconnect', (reason) => {
