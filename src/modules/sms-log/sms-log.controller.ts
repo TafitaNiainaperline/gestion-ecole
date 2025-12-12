@@ -2,7 +2,7 @@ import { Controller, Get, Param } from '@nestjs/common';
 import { SmsLogService } from './sms-log.service';
 import { Public } from '../../auth/decorators/public.decorator';
 
-@Controller('api/sms-logs')
+@Controller('sms-logs')
 export class SmsLogController {
   constructor(private smsLogService: SmsLogService) {}
 
@@ -16,6 +16,18 @@ export class SmsLogController {
   @Get('stats')
   async getGlobalStats() {
     return this.smsLogService.getGlobalStats();
+  }
+
+  @Public()
+  @Get('recent')
+  async getRecentNotifications() {
+    return this.smsLogService.getRecentNotifications(10);
+  }
+
+  @Public()
+  @Get('history')
+  async getHistory() {
+    return this.smsLogService.getHistory();
   }
 
   @Public()

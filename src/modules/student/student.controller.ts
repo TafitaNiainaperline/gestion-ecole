@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { StudentService } from './student.service';
 import { CreateStudentDto } from './dto/create-student.dto';
+import { CreateStudentWithParentDto } from './dto/create-student-with-parent.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 import { UpdateEcolageDto } from './dto/update-ecolage.dto';
 import { Public } from '../../auth/decorators/public.decorator';
@@ -20,8 +21,15 @@ export class StudentController {
 
   @Public()
   @Post()
-  async create(@Body() createStudentDto: CreateStudentDto) {
-    return this.studentService.create(createStudentDto);
+  async create(@Body() body: any) {
+    // Check if the request includes parent data
+    if (body.parent) {
+      // Create student with parent
+      return this.studentService.createWithParent(body as CreateStudentWithParentDto);
+    } else {
+      // Create student only (requires existing parentId)
+      return this.studentService.create(body as CreateStudentDto);
+    }
   }
 
   @Public()

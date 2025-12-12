@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -8,11 +8,9 @@ import { StudentService } from '../student/student.service';
 import { SmsService } from '../sms/sms.service';
 import { SmsLogService } from '../sms-log/sms-log.service';
 import { SendImmediateDto } from './dto/send-immediate.dto';
-
 @Injectable()
 export class NotificationSchedulerService {
   private readonly logger = new Logger(NotificationSchedulerService.name);
-
   constructor(
     @InjectModel(Notification.name)
     private notificationModel: Model<NotificationDocument>,
@@ -20,7 +18,6 @@ export class NotificationSchedulerService {
     private smsService: SmsService,
     private smsLogService: SmsLogService,
   ) {}
-
   /**
    * Check for scheduled notifications every minute
    * and send them if the scheduled time has passed
@@ -29,7 +26,6 @@ export class NotificationSchedulerService {
   async handleScheduledNotifications() {
     try {
       const now = new Date();
-
       // Find all notifications that:
       // 1. Have scheduledAt <= now
       // 2. Status is DRAFT (not yet sent)
@@ -37,7 +33,6 @@ export class NotificationSchedulerService {
         scheduledAt: { $lte: now },
         status: NotificationStatus.DRAFT,
       });
-
       for (const notification of scheduledNotifications) {
         this.logger.log(
           `Sending scheduled notification: ${notification._id}`,
@@ -48,10 +43,8 @@ export class NotificationSchedulerService {
           { status: NotificationStatus.SENDING },
           { new: true },
         );
-
         // Send the notification
         await this.sendNotification(notification);
-
         this.logger.log(
           `Notification sent successfully: ${notification._id}`,
         );
@@ -62,7 +55,6 @@ export class NotificationSchedulerService {
       );
     }
   }
-
   /**
    * Manually trigger sending of a scheduled notification
    */
@@ -72,14 +64,11 @@ export class NotificationSchedulerService {
       { status: NotificationStatus.SENDING },
       { new: true },
     );
-
     if (!notification) {
       throw new Error(`Notification with ID ${notificationId} not found`);
     }
-
     // Send the notification (this will also delete it)
     await this.sendNotification(notification);
-
     return {
       message: 'Notification sent and removed from scheduled notifications',
       stats: {
@@ -89,7 +78,6 @@ export class NotificationSchedulerService {
       },
     };
   }
-
   /**
    * Send notification to all targeted recipients
    */
@@ -97,19 +85,14 @@ export class NotificationSchedulerService {
     try {
       // Get target students based on targetType
       const targetStudents = await this.getTargetStudents(notification);
-
       this.logger.log(`Processing ${targetStudents.length} target students`);
-
       let successCount = 0;
       let failureCount = 0;
-
       // Send SMS to each student's parent
       for (const student of targetStudents) {
         try {
           this.logger.log(`Processing student: ${student._id} (${student.firstName} ${student.lastName})`);
-
           const parent = student.parentId;
-
           if (!parent) {
             this.logger.warn(
               `Student ${student._id} (${student.firstName} ${student.lastName}) has no parent associated`,
@@ -117,7 +100,6 @@ export class NotificationSchedulerService {
             failureCount++;
             continue;
           }
-
           if (!parent.phone) {
             this.logger.warn(
               `Parent ${parent._id} for student ${student._id} has no phone number`,
@@ -125,20 +107,16 @@ export class NotificationSchedulerService {
             failureCount++;
             continue;
           }
-
           this.logger.log(`Sending SMS to parent ${parent.name} (${parent.phone})`);
-
           // Build personalized message
           const message = this.buildMessage(
             notification.message,
             parent,
             student,
           );
-
           // Send SMS
-          await this.smsService.sendSms(parent.phone, message);
-
-          // Create SMS log
+          const smsResult = await this.smsService.sendSms(parent.phone, message);
+          // Create SMS log with PENDING status and store messageId
           await this.smsLogService.create({
             notificationId: notification._id,
             notificationTitle: notification.title,
@@ -147,11 +125,15 @@ export class NotificationSchedulerService {
             studentId: student._id,
             phoneNumber: parent.phone,
             message,
-            status: 'SENT',
-            sentAt: new Date(),
+            status: smsResult.success ? 'PENDING' : 'FAILED',
+            smsServerId: smsResult.messageId, // Store the messageId from API
+            errorMessage: smsResult.success ? undefined : (smsResult.error || smsResult.message),
           });
-
-          successCount++;
+          if (smsResult.success) {
+            successCount++;
+          } else {
+            failureCount++;
+          }
         } catch (error) {
           this.logger.error(
             `Failed to send SMS for student ${student._id}: ${
@@ -161,7 +143,6 @@ export class NotificationSchedulerService {
           failureCount++;
         }
       }
-
       // Update notification counts and mark as sent
       await this.notificationModel.findByIdAndUpdate(
         notification._id,
@@ -174,11 +155,9 @@ export class NotificationSchedulerService {
         },
         { new: true },
       );
-
       this.logger.log(
         `Notification ${notification._id}: ${successCount} sent, ${failureCount} failed`,
       );
-
       // Delete the notification after successful sending
       // The SMS logs are preserved for history
       await this.notificationModel.findByIdAndDelete(notification._id);
@@ -194,17 +173,14 @@ export class NotificationSchedulerService {
       throw error;
     }
   }
-
   /**
    * Get target students based on notification targetType
    */
   private async getTargetStudents(notification: any): Promise<any[]> {
     const { targetType, targetClasses, targetStudents } = notification;
-
     this.logger.log(`Getting target students for targetType: ${targetType}`);
     this.logger.log(`targetClasses: ${JSON.stringify(targetClasses)}`);
     this.logger.log(`targetStudents: ${JSON.stringify(targetStudents)}`);
-
     if (targetType === 'CLASSE') {
       if (!targetClasses || targetClasses.length === 0) {
         this.logger.warn('No target classes specified');
@@ -220,7 +196,6 @@ export class NotificationSchedulerService {
       this.logger.log(`Found ${flatStudents.length} students in target classes`);
       return flatStudents;
     }
-
     if (targetType === 'INDIVIDUEL') {
       if (!targetStudents || targetStudents.length === 0) {
         this.logger.warn('No target students specified');
@@ -235,18 +210,15 @@ export class NotificationSchedulerService {
       this.logger.log(`Found ${students.length} individual students`);
       return students;
     }
-
     if (targetType === 'TOUS') {
       // Get all students
       const allStudents = await this.studentService.findAll();
       this.logger.log(`Found ${allStudents.length} students (all)`);
       return allStudents;
     }
-
     this.logger.warn(`Unknown targetType: ${targetType}`);
     return [];
   }
-
   /**
    * Build personalized message with parent and student data
    */
@@ -256,7 +228,6 @@ export class NotificationSchedulerService {
     student: any,
   ): string {
     let message = template;
-
     // Replace placeholders with actual data
     message = message.replace(/{parentName}/g, parent.name || '');
     message = message.replace(/{parentPhone}/g, parent.phone || '');
@@ -270,19 +241,17 @@ export class NotificationSchedulerService {
     message = message.replace(/{classe}/g, student.classe || '');
     message = message.replace(/{niveau}/g, student.niveau || '');
     message = message.replace(/{status}/g, student.status || '');
-
     return message;
   }
-
   /**
    * Send SMS immediately without scheduling
+   * Returns pendingCount instead of successCount - status will be updated via WebSocket
    */
   async sendImmediate(
     sendImmediateDto: SendImmediateDto,
   ): Promise<{ success: boolean; message: string; stats: any }> {
     try {
       this.logger.log('Sending immediate SMS notification');
-
       // Create a temporary notification object for processing
       const tempNotification = {
         _id: 'immediate-' + Date.now(),
@@ -293,24 +262,19 @@ export class NotificationSchedulerService {
         targetClasses: sendImmediateDto.targetClasses,
         targetStudents: sendImmediateDto.targetStudents,
       };
-
       // Get target students
       const targetStudents = await this.getTargetStudents(tempNotification);
-
       this.logger.log(`Processing ${targetStudents.length} target students for immediate send`);
-
-      let successCount = 0;
+      let pendingCount = 0;
       let failureCount = 0;
-
+      const smsLogIds: string[] = [];
       // Send SMS to each student's parent
       for (const student of targetStudents) {
         try {
           this.logger.log(
             `Processing student: ${student._id} (${student.firstName} ${student.lastName})`,
           );
-
           const parent = student.parentId;
-
           if (!parent) {
             this.logger.warn(
               `Student ${student._id} (${student.firstName} ${student.lastName}) has no parent associated`,
@@ -318,7 +282,6 @@ export class NotificationSchedulerService {
             failureCount++;
             continue;
           }
-
           if (!parent.phone) {
             this.logger.warn(
               `Parent ${parent._id} for student ${student._id} has no phone number`,
@@ -326,36 +289,33 @@ export class NotificationSchedulerService {
             failureCount++;
             continue;
           }
-
           this.logger.log(
             `Sending SMS to parent ${parent.name} (${parent.phone})`,
           );
-
           // Build personalized message
           const message = this.buildMessage(
             sendImmediateDto.message,
             parent,
             student,
           );
-
-          // Send SMS
+          // Send SMS to external API
           const smsResult = await this.smsService.sendSms(parent.phone, message);
-
+          // Create SMS log with PENDING status and store messageId for tracking
+          const smsLog = await this.smsLogService.create({
+            notificationId: null, // No notification ID for immediate sends
+            notificationTitle: sendImmediateDto.title,
+            notificationType: sendImmediateDto.type,
+            parentId: parent._id,
+            studentId: student._id,
+            phoneNumber: parent.phone,
+            message,
+            status: smsResult.success ? 'PENDING' : 'FAILED',
+            smsServerId: smsResult.messageId, // Store the messageId from external API
+            errorMessage: smsResult.success ? undefined : (smsResult.error || smsResult.message),
+          });
           if (smsResult.success) {
-            // Create SMS log
-            await this.smsLogService.create({
-              notificationId: null, // No notification ID for immediate sends
-              notificationTitle: sendImmediateDto.title,
-              notificationType: sendImmediateDto.type,
-              parentId: parent._id,
-              studentId: student._id,
-              phoneNumber: parent.phone,
-              message,
-              status: 'SENT',
-              sentAt: new Date(),
-            });
-
-            successCount++;
+            pendingCount++;
+            smsLogIds.push((smsLog as any)._id.toString());
           } else {
             failureCount++;
             this.logger.error(`Failed to send SMS: ${smsResult.message || smsResult.error}`);
@@ -369,18 +329,17 @@ export class NotificationSchedulerService {
           failureCount++;
         }
       }
-
       this.logger.log(
-        `Immediate send completed: ${successCount} sent, ${failureCount} failed`,
+        `Immediate send completed: ${pendingCount} pending, ${failureCount} failed`,
       );
-
       return {
         success: true,
-        message: `SMS sent: ${successCount} successful, ${failureCount} failed`,
+        message: `SMS envoyés: ${pendingCount} en cours, ${failureCount} échoués`,
         stats: {
-          totalRecipients: successCount + failureCount,
-          successCount,
+          totalRecipients: pendingCount + failureCount,
+          pendingCount,
           failureCount,
+          smsLogIds, // Return IDs for frontend tracking
         },
       };
     } catch (error) {
