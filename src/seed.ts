@@ -24,204 +24,85 @@ async function bootstrap() {
 
   // Créer les classes
   console.log('📚 Création des classes...');
-  const classes = await classeModel.insertMany([
-    {
-      nom: '6ème A',
-      niveau: '6ème',
-      effectif: 30,
-      salle: 'Salle 101',
-      enseignantPrincipal: 'M. Rakoto',
-    },
-    {
-      nom: '6ème B',
-      niveau: '6ème',
-      effectif: 28,
-      salle: 'Salle 102',
-      enseignantPrincipal: 'Mme Rabe',
-    },
-    {
-      nom: '5ème A',
-      niveau: '5ème',
-      effectif: 25,
-      salle: 'Salle 201',
-      enseignantPrincipal: 'M. Andria',
-    },
-    {
-      nom: '5ème B',
-      niveau: '5ème',
-      effectif: 31,
-      salle: 'Salle 202',
-      enseignantPrincipal: 'Mme Rasoa',
-    },
-    {
-      nom: '4ème A',
-      niveau: '4ème',
-      effectif: 30,
-      salle: 'Salle 301',
-      enseignantPrincipal: 'M. Randria',
-    },
-    {
-      nom: '4ème B',
-      niveau: '4ème',
-      effectif: 27,
-      salle: 'Salle 302',
-      enseignantPrincipal: 'Mme Rasolofo',
-    },
-    {
-      nom: '3ème A',
-      niveau: '3ème',
-      effectif: 32,
-      salle: 'Salle 401',
-      enseignantPrincipal: 'M. Razafy',
-    },
-    {
-      nom: '3ème B',
-      niveau: '3ème',
-      effectif: 29,
-      salle: 'Salle 402',
-      enseignantPrincipal: 'Mme Rajaona',
-    },
-  ]);
+  const niveaux = ['6ème', '5ème', '4ème', '3ème'];
+  const salles = ['Salle 101', 'Salle 102', 'Salle 103', 'Salle 201', 'Salle 202', 'Salle 203', 'Salle 301', 'Salle 302', 'Salle 303', 'Salle 401', 'Salle 402', 'Salle 403'];
+  const enseignants = ['M. Rakoto', 'Mme Rabe', 'M. Andria', 'Mme Rasoa', 'M. Randria', 'Mme Rasolofo', 'M. Razafy', 'Mme Rajaona', 'M. Randrianampoinimerina', 'Mme Andrianampoinimerina', 'M. Ratsimihafotsahavola', 'Mme Razafindratsimandroso'];
+  const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+
+  const classesData: any[] = [];
+  let salle_idx = 0;
+  let teacher_idx = 0;
+
+  for (const niveau of niveaux) {
+    for (let i = 0; i < 6; i++) {
+      classesData.push({
+        nom: `${niveau} ${letters[i]}`,
+        niveau: niveau,
+        effectif: Math.floor(Math.random() * 10) + 25,
+        salle: salles[salle_idx % salles.length],
+        enseignantPrincipal: enseignants[teacher_idx % enseignants.length],
+      });
+      salle_idx++;
+      teacher_idx++;
+    }
+  }
+
+  const classes = await classeModel.insertMany(classesData);
   console.log(`✅ ${classes.length} classes créées\n`);
 
   // Créer les parents
   console.log('👨‍👩‍👧‍👦 Création des parents...');
-  const parents = await parentModel.insertMany([
-    { name: 'Marie RAKOTO', phone: '+261344426300', relation: 'MERE' },
-    { name: 'Paul RABE', phone: '+261347020583', relation: 'PERE' },
-    { name: 'Jeanne ANDRIA', phone: '+261349304189', relation: 'MERE' },
-    { name: 'Pierre RASOA', phone: '+261340012345', relation: 'PERE' },
-    { name: 'Anne RANDRIA', phone: '+261340012349', relation: 'MERE' },
-    { name: 'Fara RASOLOFO', phone: '+261331234567', relation: 'MERE' },
-    { name: 'Jean RAZAFY', phone: '+261349876543', relation: 'PERE' },
-    { name: 'Sophie RAJAONA', phone: '+261340987654', relation: 'MERE' },
-  ]);
+  const firstNames = ['Marie', 'Paul', 'Jeanne', 'Pierre', 'Anne', 'Fara', 'Jean', 'Sophie', 'Vincent', 'Nathalie', 'Jacques', 'Isabelle', 'Michel', 'Christine', 'François', 'Michèle', 'Philippe', 'Jacqueline', 'Alain', 'Monique'];
+  const lastNames = ['RAKOTO', 'RABE', 'ANDRIA', 'RASOA', 'RANDRIA', 'RASOLOFO', 'RAZAFY', 'RAJAONA', 'RANDRIANAMPOINIMERINA', 'ANDRIANAMPOINIMERINA', 'RATSIMIHAFOTSAHAVOLA', 'RAZAFINDRATSIMANDROSO', 'RATSIMBA', 'RAMIANDRISOA', 'RANDRIANASOLO', 'RATSIFANDRIHAMANANA', 'RAKOTOMALALA', 'RAZAFINDRAMIADANA', 'RAMANANTSOA', 'RATSIVALAKA'];
+  const relations = ['MERE', 'PERE'];
+
+  const parentsData: any[] = [];
+  for (let i = 0; i < 500; i++) {
+    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+    const phone = `+261${Math.floor(Math.random() * 9) + 3}${Math.floor(Math.random() * 10000000).toString().padStart(7, '0')}`;
+    parentsData.push({
+      name: `${firstName} ${lastName}`,
+      phone: phone,
+      relation: relations[Math.floor(Math.random() * relations.length)],
+    });
+  }
+
+  const parents = await parentModel.insertMany(parentsData);
   console.log(`✅ ${parents.length} parents créés\n`);
 
   // Créer les étudiants
   console.log('👨‍🎓 Création des étudiants...');
-  const students = await studentModel.insertMany([
-    {
-      matricule: 'ET2024156',
-      firstName: 'Kazz',
-      lastName: 'RAKOTO',
-      classe: '6ème A',
-      niveau: '6ème',
-      parentId: parents[0]._id,
-      status: 'ACTIF',
-      ecolageStatus: {
-        '2024-09': 'PAYE',
-        '2024-10': 'PAYE',
-        '2024-11': 'PAYE',
-        '2024-12': 'IMPAYE',
-      },
-    },
-    {
-      matricule: 'ET2024157',
-      firstName: 'Tafita',
-      lastName: 'RABE',
-      classe: '6ème A',
-      niveau: '6ème',
-      parentId: parents[1]._id,
-      status: 'ACTIF',
-      ecolageStatus: {
-        '2024-09': 'PAYE',
-        '2024-10': 'PAYE',
-        '2024-11': 'PAYE',
-        '2024-12': 'PAYE',
-      },
-    },
-    {
-      matricule: 'ET2024158',
-      firstName: 'Mihaja',
-      lastName: 'ANDRIA',
-      classe: '6ème A',
-      niveau: '6ème',
-      parentId: parents[2]._id,
-      status: 'ACTIF',
-      ecolageStatus: {
-        '2024-09': 'PAYE',
-        '2024-10': 'IMPAYE',
-        '2024-11': 'IMPAYE',
-        '2024-12': 'IMPAYE',
-      },
-    },
-    {
-      matricule: 'ET2024159',
-      firstName: 'Lina',
-      lastName: 'RASOA',
-      classe: '4ème A',
-      niveau: '4ème',
-      parentId: parents[3]._id,
-      status: 'ACTIF',
-      ecolageStatus: {
-        '2024-09': 'PAYE',
-        '2024-10': 'PAYE',
-        '2024-11': 'PAYE',
-        '2024-12': 'IMPAYE',
-      },
-    },
-    {
-      matricule: 'ET2024160',
-      firstName: 'Tina',
-      lastName: 'RANDRIA',
-      classe: '3ème A',
-      niveau: '3ème',
-      parentId: parents[4]._id,
-      status: 'ACTIF',
-      ecolageStatus: {
-        '2024-09': 'PAYE',
-        '2024-10': 'PAYE',
-        '2024-11': 'PAYE',
-        '2024-12': 'PAYE',
-      },
-    },
-    {
-      matricule: 'ET2024161',
-      firstName: 'Hery',
-      lastName: 'RASOLOFO',
-      classe: '6ème B',
-      niveau: '6ème',
-      parentId: parents[5]._id,
-      status: 'ACTIF',
-      ecolageStatus: {
-        '2024-09': 'IMPAYE',
-        '2024-10': 'IMPAYE',
-        '2024-11': 'IMPAYE',
-        '2024-12': 'IMPAYE',
-      },
-    },
-    {
-      matricule: 'ET2024162',
-      firstName: 'Nadia',
-      lastName: 'RAZAFY',
-      classe: '5ème A',
-      niveau: '5ème',
-      parentId: parents[6]._id,
-      status: 'ACTIF',
-      ecolageStatus: {
-        '2024-09': 'PAYE',
-        '2024-10': 'PAYE',
-        '2024-11': 'IMPAYE',
-        '2024-12': 'IMPAYE',
-      },
-    },
-    {
-      matricule: 'ET2024163',
-      firstName: 'Kevin',
-      lastName: 'RAJAONA',
-      classe: '5ème B',
-      niveau: '5ème',
-      parentId: parents[7]._id,
-      status: 'ACTIF',
-      ecolageStatus: {
-        '2024-09': 'PAYE',
-        '2024-10': 'PAYE',
-        '2024-11': 'PAYE',
-        '2024-12': 'PAYE',
-      },
-    },
-  ]);
+  const studentFirstNames = ['Kazz', 'Tafita', 'Mihaja', 'Lina', 'Tina', 'Hery', 'Nadia', 'Kevin', 'Alex', 'Benjamin', 'Cédric', 'Denis', 'Eric', 'Fabrice', 'Gaston', 'Henri', 'Isabelle', 'Jonathan', 'Karine', 'Laurent', 'Marlène', 'Nicolas', 'Olivier', 'Patricia', 'Quentin', 'Rachelle', 'Stéphane', 'Thérèse', 'Ulric', 'Valérie'];
+  const studentLastNames = ['RAKOTO', 'RABE', 'ANDRIA', 'RASOA', 'RANDRIA', 'RASOLOFO', 'RAZAFY', 'RAJAONA', 'RANDRIANAMPOINIMERINA', 'ANDRIANAMPOINIMERINA', 'RATSIMIHAFOTSAHAVOLA', 'RAZAFINDRATSIMANDROSO', 'RATSIMBA', 'RAMIANDRISOA', 'RANDRIANASOLO'];
+  const classNames = classesData.map(c => c.nom);
+  const statuses = ['ACTIF', 'INACTIF', 'SUSPENDU'];
+  const months = ['2024-09', '2024-10', '2024-11', '2024-12'];
+  const paymentStatuses = ['PAYE', 'IMPAYE'];
+
+  const studentsData: any[] = [];
+  for (let i = 0; i < 2000; i++) {
+    const selectedClass = classNames[Math.floor(Math.random() * classNames.length)];
+    const niveau = selectedClass.split(' ')[0];
+    const ecolageStatus: any = {};
+
+    months.forEach(month => {
+      ecolageStatus[month] = paymentStatuses[Math.floor(Math.random() * paymentStatuses.length)];
+    });
+
+    studentsData.push({
+      matricule: `ET2024${1000 + i}`,
+      firstName: studentFirstNames[Math.floor(Math.random() * studentFirstNames.length)],
+      lastName: studentLastNames[Math.floor(Math.random() * studentLastNames.length)],
+      classe: selectedClass,
+      niveau: niveau,
+      parentId: parents[Math.floor(Math.random() * parents.length)]._id,
+      status: statuses[Math.floor(Math.random() * 2)],
+      ecolageStatus: ecolageStatus,
+    });
+  }
+
+  const students = await studentModel.insertMany(studentsData);
   console.log(`✅ ${students.length} étudiants créés\n`);
 
   console.log('🎉 Seeding terminé avec succès!\n');
