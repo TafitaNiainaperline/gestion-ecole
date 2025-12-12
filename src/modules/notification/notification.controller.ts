@@ -8,7 +8,7 @@ import { Public } from '../../auth/decorators/public.decorator';
 
 @ApiTags('notifications')
 @ApiBearerAuth()
-@Controller('api/notifications')
+@Controller('notifications')
 export class NotificationController {
   constructor(
     private notificationService: NotificationService,
