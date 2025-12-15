@@ -37,9 +37,27 @@ export class SmsLogController {
   }
 
   @Public()
+  @Get('sending-pending')
+  async getSendingAndPending() {
+    return this.smsLogService.findSendingAndPending();
+  }
+
+  @Public()
   @Post('retry-all-failed')
   async retryAllFailed() {
     return this.smsLogService.retryAllFailed();
+  }
+
+  @Public()
+  @Post(':id/ignore')
+  async ignoreSingleSms(@Param('id') id: string) {
+    return this.smsLogService.ignoreSingleSms(id);
+  }
+
+  @Public()
+  @Post('ignore-all-failed')
+  async ignoreAllFailed() {
+    return this.smsLogService.ignoreAllFailedSms();
   }
 
   @Public()
@@ -58,6 +76,18 @@ export class SmsLogController {
   @Post(':id/retry')
   async retrySingleSms(@Param('id') id: string) {
     return this.smsLogService.retrySingleSms(id);
+  }
+
+  @Public()
+  @Post(':id/cancel')
+  async cancelSingleSendingSms(@Param('id') id: string) {
+    return this.smsLogService.cancelSingleSendingSms(id);
+  }
+
+  @Public()
+  @Post('cancel-all-sending')
+  async cancelAllSendingSms() {
+    return this.smsLogService.cancelAllSendingSms();
   }
 
   @Public()

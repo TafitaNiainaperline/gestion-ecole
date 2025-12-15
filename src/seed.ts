@@ -24,92 +24,199 @@ async function bootstrap() {
 
   // Créer les classes
   console.log('📚 Création des classes...');
-  const niveaux = ['6ème', '5ème', '4ème', '3ème'];
-  const salles = ['Salle 101', 'Salle 102', 'Salle 103', 'Salle 201', 'Salle 202', 'Salle 203', 'Salle 301', 'Salle 302', 'Salle 303', 'Salle 401', 'Salle 402', 'Salle 403'];
-  const enseignants = ['M. Rakoto', 'Mme Rabe', 'M. Andria', 'Mme Rasoa', 'M. Randria', 'Mme Rasolofo', 'M. Razafy', 'Mme Rajaona', 'M. Randrianampoinimerina', 'Mme Andrianampoinimerina', 'M. Ratsimihafotsahavola', 'Mme Razafindratsimandroso'];
-  const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
-
-  const classesData: any[] = [];
-  let salle_idx = 0;
-  let teacher_idx = 0;
-
-  for (const niveau of niveaux) {
-    for (let i = 0; i < 6; i++) {
-      classesData.push({
-        nom: `${niveau} ${letters[i]}`,
-        niveau: niveau,
-        effectif: Math.floor(Math.random() * 10) + 25,
-        salle: salles[salle_idx % salles.length],
-        enseignantPrincipal: enseignants[teacher_idx % enseignants.length],
-      });
-      salle_idx++;
-      teacher_idx++;
-    }
-  }
+  const classesData = [
+    {
+      nom: '6ème',
+      niveau: '6ème',
+      effectif: 30,
+      salle: 'Salle 101',
+      enseignantPrincipal: 'M. Rakoto',
+    },
+    {
+      nom: '5ème',
+      niveau: '5ème',
+      effectif: 28,
+      salle: 'Salle 201',
+      enseignantPrincipal: 'Mme Rabe',
+    },
+    {
+      nom: '4ème',
+      niveau: '4ème',
+      effectif: 32,
+      salle: 'Salle 301',
+      enseignantPrincipal: 'M. Andria',
+    },
+    {
+      nom: '3ème',
+      niveau: '3ème',
+      effectif: 25,
+      salle: 'Salle 401',
+      enseignantPrincipal: 'Mme Rasoa',
+    },
+  ];
 
   const classes = await classeModel.insertMany(classesData);
-  console.log(` ${classes.length} classes créées\n`);
+  console.log(`✅ ${classes.length} classes créées\n`);
 
-  // Créer les parents
-  console.log(' Création des parents...');
-  const firstNames = ['Marie', 'Paul', 'Jeanne', 'Pierre', 'Anne', 'Fara', 'Jean', 'Sophie', 'Vincent', 'Nathalie', 'Jacques', 'Isabelle', 'Michel', 'Christine', 'François', 'Michèle', 'Philippe', 'Jacqueline', 'Alain', 'Monique'];
-  const lastNames = ['RAKOTO', 'RABE', 'ANDRIA', 'RASOA', 'RANDRIA', 'RASOLOFO', 'RAZAFY', 'RAJAONA', 'RANDRIANAMPOINIMERINA', 'ANDRIANAMPOINIMERINA', 'RATSIMIHAFOTSAHAVOLA', 'RAZAFINDRATSIMANDROSO', 'RATSIMBA', 'RAMIANDRISOA', 'RANDRIANASOLO', 'RATSIFANDRIHAMANANA', 'RAKOTOMALALA', 'RAZAFINDRAMIADANA', 'RAMANANTSOA', 'RATSIVALAKA'];
+  // Numéros réels pour les tests SMS
+  const realPhoneNumbers = [
+    '0344426300',
+    '0328548813',
+    '0324058027',
+    '0347020583',
+    '0347656673',
+    '0385998648',
+    '0349304189',
+    '0349652096',
+    '0343519534',
+    '0383405789',
+    '0340929925',
+    '0345812967',
+    '0347327950',
+    '0345098538',
+    '0349919902',
+    '0341737793',
+    '0385872321',
+    '0349703629',
+    '0341819395',
+    '0387786816',
+    '0341612616',
+    '0340518878',
+    '0347990759',
+    '0387284725',
+    '0380619610',
+    '0388152171',
+    '0346404486',
+  ];
+
+  // Noms malgaches pour les parents
+  const parentNames = [
+    { firstName: 'Marie', lastName: 'RAKOTO' },
+    { firstName: 'Paul', lastName: 'RABE' },
+    { firstName: 'Jeanne', lastName: 'ANDRIA' },
+    { firstName: 'Pierre', lastName: 'RASOA' },
+    { firstName: 'Anne', lastName: 'RANDRIA' },
+    { firstName: 'Fara', lastName: 'RASOLOFO' },
+    { firstName: 'Jean', lastName: 'RAZAFY' },
+    { firstName: 'Sophie', lastName: 'RAJAONA' },
+    { firstName: 'Vincent', lastName: 'RATSIMBA' },
+    { firstName: 'Nathalie', lastName: 'RAMIANDRISOA' },
+    { firstName: 'Jacques', lastName: 'RANDRIANASOLO' },
+    { firstName: 'Isabelle', lastName: 'RAKOTOMALALA' },
+    { firstName: 'Michel', lastName: 'RAZAFINDRAMIADANA' },
+    { firstName: 'Christine', lastName: 'RAMANANTSOA' },
+    { firstName: 'François', lastName: 'RATSIVALAKA' },
+    { firstName: 'Michèle', lastName: 'RAHARINIRINA' },
+    { firstName: 'Philippe', lastName: 'RAZAFIMAHEFA' },
+    { firstName: 'Jacqueline', lastName: 'RAKOTONDRABE' },
+    { firstName: 'Alain', lastName: 'RANDRIANARISOA' },
+    { firstName: 'Monique', lastName: 'RABEMANANJARA' },
+    { firstName: 'Robert', lastName: 'RAHARIJAONA' },
+    { firstName: 'Claudine', lastName: 'RATSIMANDRESY' },
+    { firstName: 'Daniel', lastName: 'RAKOTOZAFY' },
+    { firstName: 'Sylvie', lastName: 'RANDRIAMAMPIONONA' },
+    { firstName: 'Bernard', lastName: 'RAKOTONIRINA' },
+    { firstName: 'Martine', lastName: 'RAFANOMEZANTSOA' },
+    { firstName: 'Georges', lastName: 'RASOANAIVO' },
+  ];
+
+  // Prénoms pour les étudiants
+  const studentFirstNames = [
+    'Kazz',
+    'Tafita',
+    'Mihaja',
+    'Lina',
+    'Tina',
+    'Hery',
+    'Nadia',
+    'Kevin',
+    'Alex',
+    'Benjamin',
+    'Cédric',
+    'Denis',
+    'Eric',
+    'Fabrice',
+    'Gaston',
+    'Henri',
+    'Isabelle',
+    'Jonathan',
+    'Karine',
+    'Laurent',
+    'Marlène',
+    'Nicolas',
+    'Olivier',
+    'Patricia',
+    'Quentin',
+    'Rachelle',
+    'Stéphane',
+  ];
+
+  // Fonction pour formater les numéros au format +261...
+  const formatPhoneNumber = (phone: string): string => {
+    const cleaned = phone.replace(/\s+/g, ''); // Enlever les espaces
+    if (cleaned.startsWith('0')) {
+      return `+261${cleaned.substring(1)}`; // Remplacer 0 par +261
+    }
+    return cleaned;
+  };
+
+  // Créer les 27 parents
+  console.log('👨‍👩‍👧‍👦 Création de 27 parents avec numéros réels...');
+  const parentsData: any[] = [];
   const relations = ['MERE', 'PERE'];
 
-  const parentsData: any[] = [];
-  for (let i = 0; i < 500; i++) {
-    const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
-    const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
-    const phone = `+261${Math.floor(Math.random() * 9) + 3}${Math.floor(Math.random() * 10000000).toString().padStart(7, '0')}`;
+  realPhoneNumbers.forEach((phone, index) => {
+    const { firstName, lastName } = parentNames[index];
+    const relation = relations[index % 2];
     parentsData.push({
       name: `${firstName} ${lastName}`,
-      phone: phone,
-      relation: relations[Math.floor(Math.random() * relations.length)],
+      phone: formatPhoneNumber(phone),
+      relation: relation,
     });
-  }
+  });
 
   const parents = await parentModel.insertMany(parentsData);
-  console.log(` ${parents.length} parents créés\n`);
+  console.log(`✅ ${parents.length} parents créés\n`);
 
-  // Créer les étudiants
-  console.log('👨‍🎓 Création des étudiants...');
-  const studentFirstNames = ['Kazz', 'Tafita', 'Mihaja', 'Lina', 'Tina', 'Hery', 'Nadia', 'Kevin', 'Alex', 'Benjamin', 'Cédric', 'Denis', 'Eric', 'Fabrice', 'Gaston', 'Henri', 'Isabelle', 'Jonathan', 'Karine', 'Laurent', 'Marlène', 'Nicolas', 'Olivier', 'Patricia', 'Quentin', 'Rachelle', 'Stéphane', 'Thérèse', 'Ulric', 'Valérie'];
-  const studentLastNames = ['RAKOTO', 'RABE', 'ANDRIA', 'RASOA', 'RANDRIA', 'RASOLOFO', 'RAZAFY', 'RAJAONA', 'RANDRIANAMPOINIMERINA', 'ANDRIANAMPOINIMERINA', 'RATSIMIHAFOTSAHAVOLA', 'RAZAFINDRATSIMANDROSO', 'RATSIMBA', 'RAMIANDRISOA', 'RANDRIANASOLO'];
-  const classNames = classesData.map(c => c.nom);
-  const statuses = ['ACTIF', 'INACTIF', 'SUSPENDU'];
+  // Créer 27 étudiants (1 par parent)
+  console.log('👨‍🎓 Création de 27 étudiants...');
+  const studentsData: any[] = [];
+  const classNames = classesData.map((c) => c.nom);
   const months = ['2024-09', '2024-10', '2024-11', '2024-12'];
   const paymentStatuses = ['PAYE', 'IMPAYE'];
 
-  const studentsData: any[] = [];
-  for (let i = 0; i < 2000; i++) {
-    const selectedClass = classNames[Math.floor(Math.random() * classNames.length)];
+  parents.forEach((parent, index) => {
+    const parentLastName = parent.name.split(' ').pop();
+    const selectedClass =
+      classNames[Math.floor(Math.random() * classNames.length)];
     const niveau = selectedClass.split(' ')[0];
     const ecolageStatus: any = {};
 
-    months.forEach(month => {
-      ecolageStatus[month] = paymentStatuses[Math.floor(Math.random() * paymentStatuses.length)];
+    months.forEach((month) => {
+      ecolageStatus[month] =
+        paymentStatuses[Math.floor(Math.random() * paymentStatuses.length)];
     });
 
     studentsData.push({
-      matricule: `ET2024${1000 + i}`,
-      firstName: studentFirstNames[Math.floor(Math.random() * studentFirstNames.length)],
-      lastName: studentLastNames[Math.floor(Math.random() * studentLastNames.length)],
+      matricule: `ET2024${1001 + index}`,
+      firstName: studentFirstNames[index % studentFirstNames.length],
+      lastName: parentLastName,
       classe: selectedClass,
       niveau: niveau,
-      parentId: parents[Math.floor(Math.random() * parents.length)]._id,
-      status: statuses[Math.floor(Math.random() * 2)],
+      parentId: parent._id,
+      status: 'ACTIF',
       ecolageStatus: ecolageStatus,
     });
-  }
+  });
 
   const students = await studentModel.insertMany(studentsData);
-  console.log(` ${students.length} étudiants créés\n`);
+  console.log(`✅ ${students.length} étudiants créés\n`);
 
-  console.log(' Seeding terminé avec succès!\n');
-  console.log(' Résumé:');
+  console.log('🎉 Seeding terminé avec succès!\n');
+  console.log('📊 Résumé:');
   console.log(`   - ${classes.length} classes`);
-  console.log(`   - ${parents.length} parents`);
-  console.log(`   - ${students.length} étudiants`);
+  console.log(`   - ${parents.length} parents (tous avec numéros réels)`);
+  console.log(`   - ${students.length} étudiants (1 par parent)`);
 
   await app.close();
 }

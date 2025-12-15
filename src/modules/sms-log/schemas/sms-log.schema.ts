@@ -48,6 +48,9 @@ export class SmsLog {
 
   @Prop({ default: 0 })
   retryCount: number;
+
+  @Prop({ default: false })
+  ignored: boolean;
 }
 
 export const SmsLogSchema = SchemaFactory.createForClass(SmsLog);

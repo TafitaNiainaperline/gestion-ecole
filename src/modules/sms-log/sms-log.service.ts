@@ -76,9 +76,69 @@ export class SmsLogService {
 
   async findAllFailed(): Promise<SmsLogDocument[]> {
     return this.smsLogModel
-      .find({ status: 'FAILED' })
+      .find({ status: 'FAILED', ignored: { $ne: true } })
       .populate(['parentId', 'studentId'])
       .sort({ createdAt: -1 });
+  }
+
+  async findSendingAndPending(): Promise<SmsLogDocument[]> {
+    return this.smsLogModel
+      .find({
+        status: { $in: ['SENDING', 'PENDING'] },
+        ignored: { $ne: true },
+      })
+      .populate(['parentId', 'studentId'])
+      .sort({ createdAt: -1 });
+  }
+
+  async ignoreSingleSms(smsLogId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const smsLog = await this.smsLogModel.findById(smsLogId);
+
+      if (!smsLog) {
+        return {
+          success: false,
+          message: 'SMS log not found',
+        };
+      }
+
+      await this.smsLogModel.findByIdAndUpdate(smsLogId, { ignored: true });
+
+      this.logger.log(`✅ SMS ${smsLogId} marked as ignored`);
+      return {
+        success: true,
+        message: 'SMS marked as ignored',
+      };
+    } catch (error) {
+      this.logger.error(`Error ignoring SMS ${smsLogId}:`, error);
+      return {
+        success: false,
+        message: `Error ignoring SMS: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  async ignoreAllFailedSms(): Promise<{ success: boolean; message: string; count: number }> {
+    try {
+      const result = await this.smsLogModel.updateMany(
+        { status: 'FAILED', ignored: { $ne: true } },
+        { $set: { ignored: true } },
+      );
+
+      this.logger.log(`✅ ${result.modifiedCount} failed SMS marked as ignored`);
+      return {
+        success: true,
+        message: `${result.modifiedCount} SMS marked as ignored`,
+        count: result.modifiedCount,
+      };
+    } catch (error) {
+      this.logger.error('Error ignoring all failed SMS:', error);
+      return {
+        success: false,
+        message: `Error ignoring SMS: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        count: 0,
+      };
+    }
   }
 
   async getStats(notificationId: string): Promise<any> {
@@ -458,6 +518,82 @@ export class SmsLogService {
           retried: 0,
           stillFailed: 0,
         },
+      };
+    }
+  }
+
+  /**
+   * Cancel a single SMS in SENDING or PENDING status
+   */
+  async cancelSingleSendingSms(smsLogId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const smsLog = await this.smsLogModel.findById(smsLogId);
+
+      if (!smsLog) {
+        return {
+          success: false,
+          message: 'SMS log not found',
+        };
+      }
+
+      if (smsLog.status !== 'SENDING' && smsLog.status !== 'PENDING') {
+        return {
+          success: false,
+          message: `Cannot cancel SMS with status: ${smsLog.status}. Only SENDING or PENDING SMS can be cancelled.`,
+        };
+      }
+
+      await this.smsLogModel.findByIdAndUpdate(smsLogId, {
+        status: 'FAILED',
+        errorMessage: 'Cancelled by user',
+        ignored: true
+      });
+
+      this.logger.log(`✅ SMS ${smsLogId} cancelled successfully`);
+      return {
+        success: true,
+        message: 'SMS cancelled successfully',
+      };
+    } catch (error) {
+      this.logger.error(`Error cancelling SMS ${smsLogId}:`, error);
+      return {
+        success: false,
+        message: `Error cancelling SMS: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
+  }
+
+  /**
+   * Cancel all SMS in SENDING or PENDING status
+   */
+  async cancelAllSendingSms(): Promise<{ success: boolean; message: string; count: number }> {
+    try {
+      const result = await this.smsLogModel.updateMany(
+        {
+          status: { $in: ['SENDING', 'PENDING'] },
+          ignored: { $ne: true }
+        },
+        {
+          $set: {
+            status: 'FAILED',
+            errorMessage: 'Cancelled by user',
+            ignored: true
+          }
+        },
+      );
+
+      this.logger.log(`✅ ${result.modifiedCount} sending/pending SMS cancelled`);
+      return {
+        success: true,
+        message: `${result.modifiedCount} SMS cancelled`,
+        count: result.modifiedCount,
+      };
+    } catch (error) {
+      this.logger.error('Error cancelling all sending/pending SMS:', error);
+      return {
+        success: false,
+        message: `Error cancelling SMS: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        count: 0,
       };
     }
   }
