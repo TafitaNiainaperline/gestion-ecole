@@ -55,15 +55,6 @@ export class CreateStudentWithParentDto {
   classe: string;
 
   @ApiProperty({
-    example: 'Actif',
-    description: 'Student status (Actif, Malade, Absent)',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  status?: string;
-
-  @ApiProperty({
     description: 'Parent information',
     type: ParentInfoDto,
   })

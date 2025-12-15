@@ -24,7 +24,9 @@ export class StudentController {
     // Check if the request includes parent data
     if (body.parent) {
       // Create student with parent
-      return this.studentService.createWithParent(body as CreateStudentWithParentDto);
+      return this.studentService.createWithParent(
+        body as CreateStudentWithParentDto,
+      );
     } else {
       // Create student only (requires existing parentId)
       return this.studentService.create(body as CreateStudentDto);
@@ -36,9 +38,8 @@ export class StudentController {
   async findAll(
     @Query('classe') classe?: string,
     @Query('niveau') niveau?: string,
-    @Query('status') status?: string,
   ) {
-    return this.studentService.findAll({ classe, niveau, status });
+    return this.studentService.findAll({ classe, niveau });
   }
 
   @Public()

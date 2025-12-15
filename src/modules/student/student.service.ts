@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Student, StudentDocument } from './schemas/student.schema';
@@ -30,7 +36,9 @@ export class StudentService {
     return newStudent.save();
   }
 
-  async createWithParent(createStudentWithParentDto: CreateStudentWithParentDto): Promise<Student> {
+  async createWithParent(
+    createStudentWithParentDto: CreateStudentWithParentDto,
+  ): Promise<Student> {
     const existingStudent = await this.studentModel.findOne({
       matricule: createStudentWithParentDto.matricule,
     });
@@ -45,7 +53,9 @@ export class StudentService {
     const niveau = createStudentWithParentDto.classe.split(' ')[0];
 
     // Create the parent first
-    const parent = await this.parentService.create(createStudentWithParentDto.parent);
+    const parent = await this.parentService.create(
+      createStudentWithParentDto.parent,
+    );
 
     // Create the student with the parent's ID
     const newStudent = new this.studentModel({
@@ -54,12 +64,13 @@ export class StudentService {
       lastName: createStudentWithParentDto.lastName,
       classe: createStudentWithParentDto.classe,
       niveau: niveau,
-      status: createStudentWithParentDto.status || 'ACTIF',
       parentId: (parent as any)._id,
     });
 
     const savedStudent = await newStudent.save();
-    const populatedStudent = await this.studentModel.findById(savedStudent._id).populate('parentId');
+    const populatedStudent = await this.studentModel
+      .findById(savedStudent._id)
+      .populate('parentId');
 
     if (!populatedStudent) {
       throw new Error('Failed to retrieve created student');
@@ -71,13 +82,11 @@ export class StudentService {
   async findAll(filters?: {
     classe?: string;
     niveau?: string;
-    status?: string;
   }): Promise<Student[]> {
     const query: any = { isActive: true };
 
     if (filters?.classe) query.classe = filters.classe;
     if (filters?.niveau) query.niveau = filters.niveau;
-    if (filters?.status) query.status = filters.status;
 
     return this.studentModel.find(query).populate('parentId');
   }
@@ -106,7 +115,10 @@ export class StudentService {
     return student;
   }
 
-  async update(id: string, updateStudentDto: UpdateStudentDto): Promise<Student> {
+  async update(
+    id: string,
+    updateStudentDto: UpdateStudentDto,
+  ): Promise<Student> {
     const student = await this.studentModel.findByIdAndUpdate(
       id,
       updateStudentDto,

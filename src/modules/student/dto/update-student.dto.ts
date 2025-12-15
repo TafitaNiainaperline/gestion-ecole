@@ -31,15 +31,6 @@ export class UpdateStudentDto {
   niveau?: string;
 
   @ApiProperty({
-    example: 'ACTIF',
-    description: 'Student status',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  status?: string;
-
-  @ApiProperty({
     example: '507f1f77bcf86cd799439011',
     description: 'Parent ID',
     required: false,
