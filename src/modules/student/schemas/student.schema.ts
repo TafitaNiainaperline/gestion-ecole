@@ -31,8 +31,6 @@ export class Student {
   @Prop({ type: Types.ObjectId, ref: 'Parent', required: true })
   parentId: Types.ObjectId;
 
-  @Prop({ type: Map, of: String, default: new Map() })
-  ecolageStatus: Map<string, string>; // { "2024-11": "PAYE", "2024-12": "IMPAYE" }
 
   @Prop({ default: true })
   isActive: boolean;

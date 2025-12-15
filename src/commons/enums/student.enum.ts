@@ -3,8 +3,3 @@ export enum StudentStatus {
   MALADE = 'MALADE',
   ABSENT = 'ABSENT',
 }
-
-export enum EcolageStatus {
-  PAYE = 'PAYE',
-  IMPAYE = 'IMPAYE',
-}

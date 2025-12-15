@@ -12,7 +12,6 @@ import { StudentService } from './student.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { CreateStudentWithParentDto } from './dto/create-student-with-parent.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
-import { UpdateEcolageDto } from './dto/update-ecolage.dto';
 import { Public } from '../../auth/decorators/public.decorator';
 
 @Controller('students')
@@ -75,18 +74,6 @@ export class StudentController {
     return this.studentService.update(id, updateStudentDto);
   }
 
-  @Public()
-  @Put(':id/ecolage')
-  async updateEcolageStatus(
-    @Param('id') id: string,
-    @Body() updateEcolageDto: UpdateEcolageDto,
-  ) {
-    return this.studentService.updateEcolageStatus(
-      id,
-      updateEcolageDto.month,
-      updateEcolageDto.status,
-    );
-  }
 
   @Public()
   @Delete(':id')

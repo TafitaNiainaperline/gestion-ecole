@@ -143,19 +143,4 @@ export class StudentService {
       .find({ niveau, isActive: true })
       .populate('parentId');
   }
-
-  async updateEcolageStatus(
-    id: string,
-    month: string,
-    status: string,
-  ): Promise<Student> {
-    const student = await this.studentModel.findById(id);
-
-    if (!student) {
-      throw new NotFoundException(`Student with ID ${id} not found`);
-    }
-
-    student.ecolageStatus.set(month, status);
-    return student.save();
-  }
 }
