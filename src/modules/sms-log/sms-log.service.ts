@@ -238,21 +238,22 @@ export class SmsLogService {
   }
 
   async getHistory(): Promise<any[]> {
-    // Get all SMS logs sorted by date
+    // Get all SMS logs sorted by date (all statuses, not just SENT)
     const logs = await this.smsLogModel
-      .find({ status: 'SENT' })
-      .sort({ sentAt: -1 })
+      .find({ status: { $in: ['SENT', 'DELIVERED', 'FAILED', 'PENDING'] } })
+      .sort({ createdAt: -1 })
       .populate(['parentId', 'studentId']);
 
     // Group by notification campaign (using title, type, and rounded time)
     const grouped = new Map<string, any>();
 
-    logs.forEach((log) => {
+    logs.forEach((log: any) => {
       // Create a key for grouping (notification title + type + hour)
-      const sentAtRounded = log.sentAt
-        ? new Date(log.sentAt).toISOString().slice(0, 13) // Group by hour
+      const dateForGrouping = log.sentAt || log.createdAt;
+      const dateRounded = dateForGrouping
+        ? new Date(dateForGrouping).toISOString().slice(0, 13) // Group by hour
         : 'unknown';
-      const key = `${log.notificationTitle || 'Sans titre'}_${log.notificationType || 'CUSTOM'}_${sentAtRounded}`;
+      const key = `${log.notificationTitle || 'Sans titre'}_${log.notificationType || 'CUSTOM'}_${dateRounded}`;
 
       if (!grouped.has(key)) {
         grouped.set(key, {
@@ -260,7 +261,7 @@ export class SmsLogService {
           notificationTitle: log.notificationTitle || 'Sans titre',
           notificationType: log.notificationType || 'CUSTOM',
           message: log.message,
-          sentAt: log.sentAt,
+          sentAt: log.sentAt || log.createdAt,
           phones: new Set<string>(),
           successCount: 0,
           failedCount: 0,
@@ -271,7 +272,11 @@ export class SmsLogService {
       const entry = grouped.get(key);
       entry.totalCount++;
 
-      if (log.status === 'SENT') {
+      if (
+        log.status === 'SENT' ||
+        log.status === 'DELIVERED' ||
+        log.status === 'PENDING'
+      ) {
         entry.successCount++;
       } else if (log.status === 'FAILED') {
         entry.failedCount++;
