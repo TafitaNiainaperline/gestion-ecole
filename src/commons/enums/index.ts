@@ -1,4 +1,3 @@
-export * from './student.enum';
 export * from './parent.enum';
 export * from './notification.enum';
 export * from './sms-log.enum';

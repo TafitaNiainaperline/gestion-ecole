@@ -1,6 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
-import { StudentStatus } from '../../../commons/enums';
 
 export type StudentDocument = Student & Document;
 
@@ -21,18 +20,9 @@ export class Student {
   @Prop({ required: true })
   niveau: string; // "6ème", "5ème"
 
-  @Prop({
-    type: String,
-    enum: Object.values(StudentStatus),
-    default: StudentStatus.ACTIF,
-  })
-  status: string;
-
   @Prop({ type: Types.ObjectId, ref: 'Parent', required: true })
   parentId: Types.ObjectId;
 
-  @Prop({ type: Map, of: String, default: new Map() })
-  ecolageStatus: Map<string, string>; // { "2024-11": "PAYE", "2024-12": "IMPAYE" }
 
   @Prop({ default: true })
   isActive: boolean;

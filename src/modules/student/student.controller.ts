@@ -12,7 +12,6 @@ import { StudentService } from './student.service';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { CreateStudentWithParentDto } from './dto/create-student-with-parent.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
-import { UpdateEcolageDto } from './dto/update-ecolage.dto';
 import { Public } from '../../auth/decorators/public.decorator';
 
 @Controller('students')
@@ -25,7 +24,9 @@ export class StudentController {
     // Check if the request includes parent data
     if (body.parent) {
       // Create student with parent
-      return this.studentService.createWithParent(body as CreateStudentWithParentDto);
+      return this.studentService.createWithParent(
+        body as CreateStudentWithParentDto,
+      );
     } else {
       // Create student only (requires existing parentId)
       return this.studentService.create(body as CreateStudentDto);
@@ -37,9 +38,8 @@ export class StudentController {
   async findAll(
     @Query('classe') classe?: string,
     @Query('niveau') niveau?: string,
-    @Query('status') status?: string,
   ) {
-    return this.studentService.findAll({ classe, niveau, status });
+    return this.studentService.findAll({ classe, niveau });
   }
 
   @Public()
@@ -75,18 +75,6 @@ export class StudentController {
     return this.studentService.update(id, updateStudentDto);
   }
 
-  @Public()
-  @Put(':id/ecolage')
-  async updateEcolageStatus(
-    @Param('id') id: string,
-    @Body() updateEcolageDto: UpdateEcolageDto,
-  ) {
-    return this.studentService.updateEcolageStatus(
-      id,
-      updateEcolageDto.month,
-      updateEcolageDto.status,
-    );
-  }
 
   @Public()
   @Delete(':id')

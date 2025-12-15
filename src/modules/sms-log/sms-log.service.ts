@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SmsLog, SmsLogDocument } from './schemas/sms-log.schema';
@@ -91,7 +97,9 @@ export class SmsLogService {
       .sort({ createdAt: -1 });
   }
 
-  async ignoreSingleSms(smsLogId: string): Promise<{ success: boolean; message: string }> {
+  async ignoreSingleSms(
+    smsLogId: string,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       const smsLog = await this.smsLogModel.findById(smsLogId);
 
@@ -118,14 +126,20 @@ export class SmsLogService {
     }
   }
 
-  async ignoreAllFailedSms(): Promise<{ success: boolean; message: string; count: number }> {
+  async ignoreAllFailedSms(): Promise<{
+    success: boolean;
+    message: string;
+    count: number;
+  }> {
     try {
       const result = await this.smsLogModel.updateMany(
         { status: 'FAILED', ignored: { $ne: true } },
         { $set: { ignored: true } },
       );
 
-      this.logger.log(`✅ ${result.modifiedCount} failed SMS marked as ignored`);
+      this.logger.log(
+        `✅ ${result.modifiedCount} failed SMS marked as ignored`,
+      );
       return {
         success: true,
         message: `${result.modifiedCount} SMS marked as ignored`,
@@ -410,9 +424,13 @@ export class SmsLogService {
   /**
    * Retry sending a single failed SMS
    */
-  async retrySingleSms(smsLogId: string): Promise<{ success: boolean; message: string; smsLog?: SmsLog }> {
+  async retrySingleSms(
+    smsLogId: string,
+  ): Promise<{ success: boolean; message: string; smsLog?: SmsLog }> {
     try {
-      const smsLog = await this.smsLogModel.findById(smsLogId).populate(['parentId', 'studentId']);
+      const smsLog = await this.smsLogModel
+        .findById(smsLogId)
+        .populate(['parentId', 'studentId']);
 
       if (!smsLog) {
         return {
@@ -431,7 +449,10 @@ export class SmsLogService {
       this.logger.log(`🔄 Retrying SMS ${smsLogId} to ${smsLog.phoneNumber}`);
 
       // Resend the SMS
-      const smsResult = await this.smsService.sendSms(smsLog.phoneNumber, smsLog.message);
+      const smsResult = await this.smsService.sendSms(
+        smsLog.phoneNumber,
+        smsLog.message,
+      );
 
       // Increment retry count
       await this.incrementRetryCount(smsLogId);
@@ -442,7 +463,9 @@ export class SmsLogService {
         {
           status: smsResult.success ? 'PENDING' : 'FAILED',
           smsServerId: smsResult.messageId || smsLog.smsServerId,
-          errorMessage: smsResult.success ? null : (smsResult.error || smsResult.message),
+          errorMessage: smsResult.success
+            ? null
+            : smsResult.error || smsResult.message,
         },
         { new: true },
       );
@@ -455,7 +478,9 @@ export class SmsLogService {
           smsLog: updatedSmsLog as SmsLog,
         };
       } else {
-        this.logger.warn(`❌ SMS ${smsLogId} retry failed: ${smsResult.error || smsResult.message}`);
+        this.logger.warn(
+          `❌ SMS ${smsLogId} retry failed: ${smsResult.error || smsResult.message}`,
+        );
         return {
           success: false,
           message: `SMS retry failed: ${smsResult.error || smsResult.message}`,
@@ -474,7 +499,11 @@ export class SmsLogService {
   /**
    * Retry all failed SMS
    */
-  async retryAllFailed(): Promise<{ success: boolean; message: string; results: any }> {
+  async retryAllFailed(): Promise<{
+    success: boolean;
+    message: string;
+    results: any;
+  }> {
     try {
       const failedSms = await this.findAllFailed();
 
@@ -530,7 +559,9 @@ export class SmsLogService {
   /**
    * Cancel a single SMS in SENDING or PENDING status
    */
-  async cancelSingleSendingSms(smsLogId: string): Promise<{ success: boolean; message: string }> {
+  async cancelSingleSendingSms(
+    smsLogId: string,
+  ): Promise<{ success: boolean; message: string }> {
     try {
       const smsLog = await this.smsLogModel.findById(smsLogId);
 
@@ -551,7 +582,7 @@ export class SmsLogService {
       await this.smsLogModel.findByIdAndUpdate(smsLogId, {
         status: 'FAILED',
         errorMessage: 'Cancelled by user',
-        ignored: true
+        ignored: true,
       });
 
       this.logger.log(`✅ SMS ${smsLogId} cancelled successfully`);
@@ -571,23 +602,29 @@ export class SmsLogService {
   /**
    * Cancel all SMS in SENDING or PENDING status
    */
-  async cancelAllSendingSms(): Promise<{ success: boolean; message: string; count: number }> {
+  async cancelAllSendingSms(): Promise<{
+    success: boolean;
+    message: string;
+    count: number;
+  }> {
     try {
       const result = await this.smsLogModel.updateMany(
         {
           status: { $in: ['SENDING', 'PENDING'] },
-          ignored: { $ne: true }
+          ignored: { $ne: true },
         },
         {
           $set: {
             status: 'FAILED',
             errorMessage: 'Cancelled by user',
-            ignored: true
-          }
+            ignored: true,
+          },
         },
       );
 
-      this.logger.log(`✅ ${result.modifiedCount} sending/pending SMS cancelled`);
+      this.logger.log(
+        `✅ ${result.modifiedCount} sending/pending SMS cancelled`,
+      );
       return {
         success: true,
         message: `${result.modifiedCount} SMS cancelled`,
@@ -601,5 +638,58 @@ export class SmsLogService {
         count: 0,
       };
     }
+  }
+
+  async getStatsByClassForCurrentMonth(): Promise<any[]> {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastDayOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+
+    const logs = await this.smsLogModel
+      .find({
+        createdAt: { $gte: firstDayOfMonth, $lte: lastDayOfMonth },
+        status: { $in: ['SENT', 'DELIVERED', 'PENDING'] },
+      })
+      .populate({
+        path: 'studentId',
+        select: 'classe firstName lastName',
+      });
+
+    const classeStats = new Map<string, { sent: number; total: number }>();
+
+    logs.forEach((log: any) => {
+      const classe = log.studentId?.classe || 'Sans classe';
+
+      if (!classeStats.has(classe)) {
+        classeStats.set(classe, { sent: 0, total: 0 });
+      }
+
+      const stats = classeStats.get(classe)!;
+      stats.total++;
+      if (log.status === 'SENT' || log.status === 'DELIVERED') {
+        stats.sent++;
+      }
+    });
+
+    const result = Array.from(classeStats.entries())
+      .map(([classe, stats]) => ({
+        classe,
+        sent: stats.sent,
+        total: stats.total,
+        taux:
+          stats.total > 0 ? Math.round((stats.sent / stats.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.total - a.total) // Sort by total SMS descending
+      .slice(0, 10);
+
+    return result;
   }
 }

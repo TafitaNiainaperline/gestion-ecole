@@ -19,6 +19,12 @@ export class SmsLogController {
   }
 
   @Public()
+  @Get('stats/by-class')
+  async getStatsByClass() {
+    return this.smsLogService.getStatsByClassForCurrentMonth();
+  }
+
+  @Public()
   @Get('recent')
   async getRecentNotifications() {
     return this.smsLogService.getRecentNotifications(10);
