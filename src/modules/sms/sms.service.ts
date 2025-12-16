@@ -1,10 +1,18 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+export interface SmsStatus {
+  messageId: string | null;
+  phone: string;
+  status: 'SENT' | 'FAILED' | 'PENDING' | 'DELIVERED';
+  error?: string;
+}
+
 export interface SmsApiResponse {
   success: boolean;
   message: string;
   messageId?: string;
   messageIds?: string[];
+  smsStatuses?: SmsStatus[];  // ← NEW: Individual status for each SMS
   data?: any;
   error?: string;
 }
@@ -27,12 +35,15 @@ export class SmsService {
     }
   }
   private formatPhoneNumber(phone: string): string {
-    // Enlever espaces et convertir +261 en 0
     return phone.replace(/\s+/g, '').replace(/^\+261/, '0');
   }
-  async sendSms(phoneNumber: string, message: string): Promise<SmsApiResponse> {
+  async sendSms(phoneNumbers: string | string[], message: string): Promise<SmsApiResponse> {
     try {
-      this.logger.log(`Sending SMS to ${phoneNumber}`);
+      const isArray = Array.isArray(phoneNumbers);
+      const phones = isArray ? phoneNumbers : [phoneNumbers];
+
+      this.logger.log(`Sending SMS to ${phones.length} recipient(s)`);
+
       if (!this.apiUrl || !this.secretId || !this.projectId) {
         this.logger.error('SMS API configuration missing');
         return {
@@ -40,7 +51,11 @@ export class SmsService {
           message: 'Configuration SMS manquante',
         };
       }
-      const formattedPhone = this.formatPhoneNumber(phoneNumber);
+
+      const formattedPhones = phones.map((phone) =>
+        this.formatPhoneNumber(phone),
+      );
+
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
@@ -49,14 +64,13 @@ export class SmsService {
           'x-project-id': this.projectId,
         },
         body: JSON.stringify({
-          phones: [formattedPhone],
+          phones: formattedPhones,
           message: message,
         }),
       });
       const data = await response.json();
 
-      // 🔍 LOG: Log la réponse complète de l'API
-      this.logger.log(`📥 Full API Response: ${JSON.stringify(data)}`);
+      this.logger.log(`Full API Response: ${JSON.stringify(data)}`);
 
       if (!response.ok) {
         this.logger.error(`SMS API error: ${JSON.stringify(data)}`);
@@ -65,98 +79,67 @@ export class SmsService {
           message: data.message || "Erreur lors de l'envoi",
         };
       }
-      this.logger.log(`SMS sent successfully to ${formattedPhone}`);
-      // Extract messageId from API response
-      // L'API retourne { data: [{ _id: "...", phone: "...", ... }] }
-      const messageId = data.messageId ||
-                       data.data?.[0]?._id ||       // ← CORRECTION: L'API retourne _id dans data[0]
-                       data.data?.messageId ||
-                       data.data?.messages?.[0]?.messageId;
 
-      this.logger.log(`Extracted messageId: ${messageId}`);
+      this.logger.log(`SMS sent successfully to ${formattedPhones.length} recipient(s)`);
+
+      // Extract messageIds
+      const messageIds = data.messageIds ||
+                        data.data?.map((sms: any) => sms._id) ||
+                        data.data?.messageId ||
+                        data.data?.messages?.map((m: any) => m.messageId) ||
+                        [];
+
+      this.logger.log(`Extracted messageIds: ${JSON.stringify(messageIds)}`);
+
+      // ✅ NEW: Extract individual SMS statuses from API response
+      const smsStatuses: SmsStatus[] = [];
+      if (data.data && Array.isArray(data.data)) {
+        for (let i = 0; i < data.data.length; i++) {
+          const smsData = data.data[i];
+          const apiStatus = smsData.status?.toLowerCase() || '';
+
+          // Map API status to our internal status
+          let status: 'SENT' | 'FAILED' | 'PENDING' | 'DELIVERED' = 'PENDING';
+          if (apiStatus === 'sent' || apiStatus === 'success') {
+            status = 'SENT';
+          } else if (apiStatus === 'delivered') {
+            status = 'DELIVERED';
+          } else if (apiStatus === 'error' || apiStatus === 'failed' || apiStatus === 'failure') {
+            status = 'FAILED';
+          }
+
+          smsStatuses.push({
+            messageId: smsData._id || messageIds[i] || null,
+            phone: smsData.phone || formattedPhones[i] || '',
+            status,
+            error: smsData.error || smsData.message,
+          });
+
+          this.logger.log(
+            `SMS Status [${i}]: phone=${smsData.phone}, status=${status}, messageId=${smsData._id}`,
+          );
+        }
+      }
 
       return {
         success: true,
-        message: 'SMS sent successfully',
-        messageId,
+        message: isArray ? `SMS sent to ${formattedPhones.length} recipients` : 'SMS sent successfully',
+        messageId: messageIds[0],
+        messageIds: messageIds,
+        smsStatuses,  // ← NEW: Return individual statuses
         data: {
-          phoneNumber: formattedPhone,
+          sent: formattedPhones.length,
+          phones: formattedPhones,
           message,
           timestamp: new Date(),
           ...data,
         },
       };
     } catch (error) {
-      this.logger.error(`Failed to send SMS to ${phoneNumber}:`, error);
+      this.logger.error(`Failed to send SMS:`, error);
       return {
         success: false,
         message: 'Failed to send SMS',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  }
-  async sendBulkSms(phoneNumbers: string[], message: string): Promise<SmsApiResponse> {
-    try {
-      this.logger.log(`Sending bulk SMS to ${phoneNumbers.length} recipients`);
-      if (!this.apiUrl || !this.secretId || !this.projectId) {
-        this.logger.error('SMS API configuration missing');
-        return {
-          success: false,
-          message: 'Configuration SMS manquante',
-        };
-      }
-      const formattedPhones = phoneNumbers.map((phone) =>
-        this.formatPhoneNumber(phone),
-      );
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-secret-id': this.secretId,
-          'x-project-id': this.projectId,
-        },
-        body: JSON.stringify({
-          phones: formattedPhones,
-          message: message,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        this.logger.error(`Bulk SMS API error: ${JSON.stringify(data)}`);
-        return {
-          success: false,
-          message: data.message || "Erreur lors de l'envoi",
-        };
-      }
-      this.logger.log(
-        `Bulk SMS sent successfully to ${formattedPhones.length} recipients`,
-      );
-      // Extract messageIds from API response
-      // L'API retourne { data: [{ _id: "...", phone: "..." }, ...] }
-      const messageIds = data.messageIds ||
-                        data.data?.map((sms: any) => sms._id) ||  // ← CORRECTION
-                        data.data?.messageIds ||
-                        data.data?.messages?.map((m: any) => m.messageId) ||
-                        [];
-
-      this.logger.log(`Extracted messageIds: ${JSON.stringify(messageIds)}`);
-
-      return {
-        success: true,
-        message: 'Bulk SMS sent',
-        messageIds,
-        data: {
-          sent: formattedPhones.length,
-          timestamp: new Date(),
-          phones: formattedPhones,
-          ...data,
-        },
-      };
-    } catch (error) {
-      this.logger.error('Failed to send bulk SMS:', error);
-      return {
-        success: false,
-        message: 'Failed to send bulk SMS',
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
