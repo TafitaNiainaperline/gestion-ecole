@@ -107,6 +107,105 @@ export class SmsLogService {
     return smsLog;
   }
 
+  /**
+   * Update SMS log status via webhook from external API
+   * Accepts: sms_id (log ID), messageId, status, or phone
+   */
+  async updateStatusByWebhook(body: {
+    sms_id?: string;
+    messageId?: string;
+    status?: string;
+    phone?: string;
+  }): Promise<any> {
+    try {
+      const { sms_id, messageId, status, phone } = body;
+
+      this.logger.log(` WEBHOOK RECEIVED: ${JSON.stringify(body)}`);
+
+      // Map API status to internal status
+      let internalStatus = 'PENDING';
+      if (status) {
+        const statusLower = status.toLowerCase();
+        if (statusLower === 'sent' || statusLower === 'success' || statusLower === 'ok') {
+          internalStatus = 'SENT';
+        } else if (statusLower === 'delivered') {
+          internalStatus = 'DELIVERED';
+        } else if (statusLower === 'error' || statusLower === 'failed' || statusLower === 'failure' || statusLower === 'invalid') {
+          internalStatus = 'FAILED';
+        } else if (statusLower === 'pending' || statusLower === 'processing' || statusLower === 'forfait_requis' || statusLower === 'en attente de forfait') {
+          internalStatus = 'PENDING';
+        }
+      }
+
+      this.logger.log(`📊 Webhook mapped status: "${status}" → "${internalStatus}"`);
+
+      let updatedLog = null;
+
+      // Try to find by sms_id (log ID)
+      if (sms_id) {
+        updatedLog = await this.smsLogModel.findByIdAndUpdate(
+          sms_id,
+          { status: internalStatus, updatedAt: new Date() },
+          { new: true },
+        );
+        if (updatedLog) {
+          this.logger.log(
+            `✅ Webhook updated SMS log ${sms_id} to status ${internalStatus}`,
+          );
+          return { success: true, message: 'Status updated', log: updatedLog };
+        }
+      }
+
+      // Fallback: Try to find by messageId
+      if (messageId && !updatedLog) {
+        updatedLog = await this.smsLogModel.findOneAndUpdate(
+          { messageId: messageId },
+          { status: internalStatus, updatedAt: new Date() },
+          { new: true },
+        );
+        if (updatedLog) {
+          this.logger.log(
+            `✅ Webhook updated SMS log (messageId: ${messageId}) to status ${internalStatus}`,
+          );
+          return { success: true, message: 'Status updated by messageId', log: updatedLog };
+        }
+      }
+
+      // Fallback: Try to find by phone
+      if (phone && !updatedLog) {
+        updatedLog = await this.smsLogModel.findOneAndUpdate(
+          { phoneNumber: phone },
+          { status: internalStatus, updatedAt: new Date() },
+          { new: true },
+        );
+        if (updatedLog) {
+          this.logger.log(
+            `✅ Webhook updated SMS log (phone: ${phone}) to status ${internalStatus}`,
+          );
+          return { success: true, message: 'Status updated by phone', log: updatedLog };
+        }
+      }
+
+      this.logger.warn(
+        `⚠️ Webhook could not find SMS log: sms_id=${sms_id}, messageId=${messageId}, phone=${phone}`,
+      );
+      return {
+        success: false,
+        message: 'SMS log not found',
+        details: body,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Error in webhook handler: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+      return {
+        success: false,
+        message: 'Error processing webhook',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
   async findAllFailed(): Promise<SmsLogDocument[]> {
     return this.smsLogModel
       .find({ status: 'FAILED' })

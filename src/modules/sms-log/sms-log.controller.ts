@@ -68,4 +68,17 @@ export class SmsLogController {
   async findById(@Param('id') id: string) {
     return this.smsLogService.findById(id);
   }
+
+  /**
+   * Webhook endpoint from external SMS API
+   * Updates SMS log status based on webhook callback
+   * POST /sms-logs/webhook/status
+   */
+  @Public()
+  @Post('webhook/status')
+  async handleWebhookStatus(
+    @Body() body: { sms_id?: string; messageId?: string; status?: string; phone?: string },
+  ) {
+    return this.smsLogService.updateStatusByWebhook(body);
+  }
 }

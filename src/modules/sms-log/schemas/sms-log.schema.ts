@@ -34,6 +34,9 @@ export class SmsLog {
   })
   status: string;
 
+  @Prop()
+  messageId?: string;
+
   createdAt?: Date;
   updatedAt?: Date;
 }
