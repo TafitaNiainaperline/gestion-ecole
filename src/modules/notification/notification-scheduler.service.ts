@@ -191,12 +191,18 @@ export class NotificationSchedulerService {
         return [];
       }
       const students = await Promise.all(
-        targetStudents.map((studentId: string) =>
-          this.studentService.findById(studentId),
-        ),
+        targetStudents.map(async (studentId: string) => {
+          try {
+            return await this.studentService.findById(studentId);
+          } catch (error) {
+            this.logger.warn(`Invalid student ID: ${studentId}`);
+            return null;
+          }
+        }),
       );
-      this.logger.log(`Found ${students.length} individual students`);
-      return students;
+      const validStudents = students.filter((s) => s !== null);
+      this.logger.log(`Found ${validStudents.length} individual students (${targetStudents.length - validStudents.length} invalid IDs)`);
+      return validStudents;
     }
     if (targetType === 'TOUS') {
       const allStudents = await this.studentService.findAll();
@@ -317,6 +323,7 @@ export class NotificationSchedulerService {
       // Extract messageIds and individual statuses from response
       const messageIds = smsResult.messageIds || (smsResult.messageId ? [smsResult.messageId] : []);
       const smsStatuses = smsResult.smsStatuses || [];
+      const invalidPhones = smsResult.invalidPhones || [];
 
       this.logger.log(
         `API Response: success=${smsResult.success}, messageIds=${JSON.stringify(messageIds)}`,
@@ -326,25 +333,79 @@ export class NotificationSchedulerService {
         this.logger.log(`Individual SMS Statuses: ${JSON.stringify(smsStatuses)}`);
       }
 
+      if (invalidPhones.length > 0) {
+        this.logger.warn(
+          `⚠️ ${invalidPhones.length} invalid phone number(s) filtered out: ${invalidPhones.join(', ')}`,
+        );
+      }
+
       const smsLogIds: string[] = [];
       let sentCount = 0;
       let failureCount = 0;
+      invalidCount = invalidPhones.length;
+
+      // First, create FAILED logs for invalid phone numbers
+      for (const invalidPhone of invalidPhones) {
+        const phoneMapping2 = phoneMapping.find(
+          (p) => p.phone === invalidPhone || p.phone === '+261' + invalidPhone.replace(/^0/, ''),
+        );
+        if (phoneMapping2) {
+          const { parent, student, message } = phoneMapping2;
+          try {
+            const invalidLog = await this.smsLogService.create({
+              notificationId: null,
+              notificationTitle: sendImmediateDto.title,
+              notificationType: sendImmediateDto.type,
+              parentId: parent._id,
+              studentId: student._id,
+              phoneNumber: invalidPhone,
+              message,
+              status: 'FAILED',
+            });
+            const logId = (invalidLog as any)._id.toString();
+            smsLogIds.push(logId);
+            failureCount++;
+            this.logger.error(
+              `❌ SMS Log created with FAILED status for invalid phone ${invalidPhone}`,
+            );
+          } catch (dbError) {
+            this.logger.error(
+              `Failed to create SMS log for invalid phone ${invalidPhone}: ${
+                dbError instanceof Error ? dbError.message : 'Unknown error'
+              }`,
+            );
+          }
+        }
+      }
 
       for (let i = 0; i < phoneMapping.length; i++) {
         const { phone, parent, student, message } = phoneMapping[i];
+
+        // Skip if this phone was invalid (already created FAILED log above)
+        if (invalidPhones.includes(phone)) {
+          continue;
+        }
+
         const messageId = messageIds[i] || null;
 
         try {
-          // ✅ NEW: Use individual status from API response
-          let logStatus = 'FAILED';  // Default to FAILED
+          // ✅ Determine status based on API response
+          // If API call succeeded, mark as SENT
+          // If API call failed, mark as FAILED
+          let logStatus = 'SENT';  // Default to SENT if API call succeeded
 
-          // Try to get status from smsStatuses array (individual status)
-          if (smsStatuses.length > i && smsStatuses[i]) {
-            logStatus = smsStatuses[i].status;
+          // If the overall API call failed, mark as FAILED
+          if (!smsResult.success) {
+            logStatus = 'FAILED';
           }
-          // Fallback: Use global success if no individual status available
-          else if (smsResult.success) {
-            logStatus = 'SENT';
+          // Check individual SMS status if available
+          else if (smsStatuses.length > i && smsStatuses[i]) {
+            const apiStatus = smsStatuses[i].status;
+            // If individual SMS has explicit FAILED status, use it
+            if (apiStatus === 'FAILED') {
+              logStatus = 'FAILED';
+            }
+            // Otherwise keep SENT (API succeeded overall)
           }
 
           const smsLog = await this.smsLogService.create({
@@ -355,20 +416,22 @@ export class NotificationSchedulerService {
             studentId: student._id,
             phoneNumber: phone,
             message,
-            status: logStatus,  // ← Use individual status, not global success
+            status: logStatus,  // ← Use appropriate status (PENDING or explicit result)
+            messageId: messageId || undefined,  // ← Store external API messageId for webhook lookup
           });
 
-          smsLogIds.push((smsLog as any)._id.toString());
+          const logId = (smsLog as any)._id.toString();
+          smsLogIds.push(logId);
 
           if (logStatus === 'SENT' || logStatus === 'DELIVERED') {
             sentCount++;
             this.logger.log(
               `✅ SMS Log created for ${phone} with status ${logStatus} (messageId: ${messageId})`,
             );
-          } else {
+          } else if (logStatus === 'FAILED') {
             failureCount++;
             this.logger.error(
-              `❌ SMS Log created with ${logStatus} status for ${phone}${
+              `❌ SMS Log created with FAILED status for ${phone}${
                 smsStatuses[i]?.error ? `: ${smsStatuses[i].error}` : ''
               }`,
             );
@@ -396,7 +459,7 @@ export class NotificationSchedulerService {
           failureCount,
           invalidCount,
           smsLogIds,
-          messageIds, 
+          messageIds,
           apiResponse: {
             success: smsResult.success,
             message: smsResult.message,
