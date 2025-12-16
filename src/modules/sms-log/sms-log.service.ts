@@ -7,6 +7,12 @@ import { SmsService } from '../sms/sms.service';
 @Injectable()
 export class SmsLogService {
   private readonly logger = new Logger(SmsLogService.name);
+  // Map to store promises waiting for webhook confirmation
+  private pendingWebhooks = new Map<string, {
+    resolve: (value: string) => void;
+    reject: (reason?: any) => void;
+    timeout: NodeJS.Timeout;
+  }>();
 
   constructor(
     @InjectModel(SmsLog.name) private smsLogModel: Model<SmsLogDocument>,
@@ -17,6 +23,38 @@ export class SmsLogService {
   async create(smsLogData: any): Promise<SmsLog> {
     const newSmsLog = new this.smsLogModel(smsLogData);
     return newSmsLog.save();
+  }
+
+  /**
+   * Wait for webhook confirmation with timeout
+   * Returns the final status (SENT or FAILED) or timeout
+   */
+  async waitForWebhookConfirmation(smsLogId: string, timeoutMs: number = 30000): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pendingWebhooks.delete(smsLogId);
+        resolve('PENDING'); // Return PENDING if webhook doesn't arrive
+      }, timeoutMs);
+
+      this.pendingWebhooks.set(smsLogId, {
+        resolve,
+        reject,
+        timeout,
+      });
+    });
+  }
+
+  /**
+   * Notify waiting code that webhook arrived
+   */
+  notifyWebhookArrived(smsLogId: string, status: string): void {
+    const pending = this.pendingWebhooks.get(smsLogId);
+    if (pending) {
+      clearTimeout(pending.timeout);
+      pending.resolve(status);
+      this.pendingWebhooks.delete(smsLogId);
+      this.logger.log(`Webhook notified for SMS ${smsLogId}: ${status}`);
+    }
   }
 
   async findByNotificationId(notificationId: string): Promise<SmsLog[]> {
@@ -37,15 +75,28 @@ export class SmsLogService {
     return smsLog;
   }
 
-  async updateStatus(id: string, status: string, data?: any): Promise<SmsLog> {
-    const updateData: any = { status };
+  async update(id: string, smsLogData: any): Promise<SmsLog> {
+    const updatedSmsLog = await this.smsLogModel.findByIdAndUpdate(id, smsLogData, {
+      new: true,
+    });
 
-    if (data?.smsServerId) updateData.smsServerId = data.smsServerId;
-    if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
-    if (status === 'SENT') updateData.sentAt = new Date();
-    if (status === 'DELIVERED') updateData.deliveredAt = new Date();
+    if (!updatedSmsLog) {
+      throw new NotFoundException(`SmsLog with ID ${id} not found`);
+    }
 
-    const smsLog = await this.smsLogModel.findByIdAndUpdate(id, updateData, {
+    return updatedSmsLog;
+  }
+
+  async delete(id: string): Promise<SmsLog> {
+    const deletedSmsLog = await this.smsLogModel.findByIdAndDelete(id);
+    if (!deletedSmsLog) {
+      throw new NotFoundException(`SmsLog with ID ${id} not found`);
+    }
+    return deletedSmsLog;
+  }
+
+  async updateStatus(id: string, status: string): Promise<SmsLog> {
+    const smsLog = await this.smsLogModel.findByIdAndUpdate(id, { status }, {
       new: true,
     });
 
@@ -56,89 +107,11 @@ export class SmsLogService {
     return smsLog;
   }
 
-  async incrementRetryCount(id: string): Promise<SmsLog> {
-    const smsLog = await this.smsLogModel.findByIdAndUpdate(
-      id,
-      { $inc: { retryCount: 1 } },
-      { new: true },
-    );
-
-    if (!smsLog) {
-      throw new NotFoundException(`SmsLog with ID ${id} not found`);
-    }
-
-    return smsLog as SmsLog;
-  }
-
-  async findPending(): Promise<SmsLog[]> {
-    return this.smsLogModel.find({ status: 'PENDING', retryCount: { $lt: 3 } });
-  }
-
   async findAllFailed(): Promise<SmsLogDocument[]> {
     return this.smsLogModel
-      .find({ status: 'FAILED', ignored: { $ne: true } })
+      .find({ status: 'FAILED' })
       .populate(['parentId', 'studentId'])
       .sort({ createdAt: -1 });
-  }
-
-  async findSendingAndPending(): Promise<SmsLogDocument[]> {
-    return this.smsLogModel
-      .find({
-        status: { $in: ['SENDING', 'PENDING'] },
-        ignored: { $ne: true },
-      })
-      .populate(['parentId', 'studentId'])
-      .sort({ createdAt: -1 });
-  }
-
-  async ignoreSingleSms(smsLogId: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const smsLog = await this.smsLogModel.findById(smsLogId);
-
-      if (!smsLog) {
-        return {
-          success: false,
-          message: 'SMS log not found',
-        };
-      }
-
-      await this.smsLogModel.findByIdAndUpdate(smsLogId, { ignored: true });
-
-      this.logger.log(`✅ SMS ${smsLogId} marked as ignored`);
-      return {
-        success: true,
-        message: 'SMS marked as ignored',
-      };
-    } catch (error) {
-      this.logger.error(`Error ignoring SMS ${smsLogId}:`, error);
-      return {
-        success: false,
-        message: `Error ignoring SMS: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
-  }
-
-  async ignoreAllFailedSms(): Promise<{ success: boolean; message: string; count: number }> {
-    try {
-      const result = await this.smsLogModel.updateMany(
-        { status: 'FAILED', ignored: { $ne: true } },
-        { $set: { ignored: true } },
-      );
-
-      this.logger.log(`✅ ${result.modifiedCount} failed SMS marked as ignored`);
-      return {
-        success: true,
-        message: `${result.modifiedCount} SMS marked as ignored`,
-        count: result.modifiedCount,
-      };
-    } catch (error) {
-      this.logger.error('Error ignoring all failed SMS:', error);
-      return {
-        success: false,
-        message: `Error ignoring SMS: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        count: 0,
-      };
-    }
   }
 
   async getStats(notificationId: string): Promise<any> {
@@ -156,7 +129,7 @@ export class SmsLogService {
   async findAll(): Promise<SmsLog[]> {
     return this.smsLogModel
       .find()
-      .sort({ sentAt: -1 })
+      .sort({ createdAt: -1 })
       .populate(['parentId', 'studentId']);
   }
 
@@ -176,7 +149,7 @@ export class SmsLogService {
     // Group by notificationId/notificationTitle and get recent notifications
     const logs = await this.smsLogModel
       .find({ status: 'SENT' })
-      .sort({ sentAt: -1 })
+      .sort({ createdAt: -1 })
       .limit(100)
       .populate(['parentId', 'studentId']);
 
@@ -185,7 +158,7 @@ export class SmsLogService {
 
     logs.forEach((log) => {
       const key = `${log.notificationTitle || 'Sans titre'}_${log.notificationType || 'CUSTOM'}_${
-        log.sentAt ? new Date(log.sentAt).toISOString().slice(0, 16) : 'unknown'
+        log.createdAt ? new Date(log.createdAt).toISOString().slice(0, 16) : 'unknown'
       }`;
 
       if (!grouped.has(key)) {
@@ -193,7 +166,7 @@ export class SmsLogService {
           id: log._id.toString(),
           type: log.notificationType || 'CUSTOM',
           title: log.notificationTitle || 'Sans titre',
-          sentAt: log.sentAt,
+          createdAt: log.createdAt,
           count: 0,
           recipients: new Set(),
         });
@@ -213,7 +186,7 @@ export class SmsLogService {
         type: notif.type,
         destinataires: notif.title,
         nombre: notif.count,
-        date: this.formatRelativeTime(notif.sentAt),
+        date: this.formatRelativeTime(notif.createdAt),
       }))
       .slice(0, limit);
 
@@ -241,7 +214,7 @@ export class SmsLogService {
     // Get all SMS logs sorted by date
     const logs = await this.smsLogModel
       .find({ status: 'SENT' })
-      .sort({ sentAt: -1 })
+      .sort({ createdAt: -1 })
       .populate(['parentId', 'studentId']);
 
     // Group by notification campaign (using title, type, and rounded time)
@@ -249,10 +222,10 @@ export class SmsLogService {
 
     logs.forEach((log) => {
       // Create a key for grouping (notification title + type + hour)
-      const sentAtRounded = log.sentAt
-        ? new Date(log.sentAt).toISOString().slice(0, 13) // Group by hour
+      const createdAtRounded = log.createdAt
+        ? new Date(log.createdAt).toISOString().slice(0, 13) // Group by hour
         : 'unknown';
-      const key = `${log.notificationTitle || 'Sans titre'}_${log.notificationType || 'CUSTOM'}_${sentAtRounded}`;
+      const key = `${log.notificationTitle || 'Sans titre'}_${log.notificationType || 'CUSTOM'}_${createdAtRounded}`;
 
       if (!grouped.has(key)) {
         grouped.set(key, {
@@ -260,7 +233,7 @@ export class SmsLogService {
           notificationTitle: log.notificationTitle || 'Sans titre',
           notificationType: log.notificationType || 'CUSTOM',
           message: log.message,
-          sentAt: log.sentAt,
+          createdAt: log.createdAt,
           phones: new Set<string>(),
           successCount: 0,
           failedCount: 0,
@@ -300,7 +273,7 @@ export class SmsLogService {
         id: `${campaign.id}-${index}`,
         phones: Array.from(campaign.phones),
         message: campaign.message,
-        sentAt: campaign.sentAt,
+        createdAt: campaign.createdAt,
         status,
         notificationType: campaign.notificationType,
         destinatairesInfo: campaign.notificationTitle,
@@ -313,98 +286,8 @@ export class SmsLogService {
     return history;
   }
 
-  async updateStatusByMessageId(
-    messageId: string,
-    status: string,
-    data?: any,
-  ): Promise<SmsLog | null> {
-    this.logger.debug(
-      `🔍 Searching for SMS log with smsServerId: ${messageId}`,
-    );
 
-    const updateData: any = { status };
-    if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
-    if (status === 'SENT') updateData.sentAt = new Date();
-    if (status === 'DELIVERED') updateData.deliveredAt = new Date();
 
-    // Mettre à jour le smsServerId avec le nouveau messageId
-    updateData.smsServerId = messageId;
-
-    const smsLog = await this.smsLogModel.findOneAndUpdate(
-      { smsServerId: messageId },
-      updateData,
-      { new: true },
-    );
-
-    if (smsLog) {
-      this.logger.debug(`✅ Found and updated SMS log: ${(smsLog as any)._id}`);
-    } else {
-      this.logger.warn(`❌ No SMS log found with smsServerId: ${messageId}`);
-      // List all recent SMS logs to help debug
-      const recentLogs = await this.smsLogModel
-        .find()
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .select('_id smsServerId phoneNumber status createdAt');
-      this.logger.debug(`📋 Recent SMS logs: ${JSON.stringify(recentLogs)}`);
-    }
-
-    return smsLog;
-  }
-
-  async updateStatusByPhoneNumber(
-    phone: string,
-    status: string,
-    messageId: string,
-    data?: any,
-  ): Promise<SmsLog | null> {
-    this.logger.debug(`🔍 Searching for SMS log by phone number: ${phone}`);
-
-    const updateData: any = {
-      status,
-      smsServerId: messageId, // Update with the new messageId from broadcast
-    };
-    if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
-    if (status === 'SENT') updateData.sentAt = new Date();
-    if (status === 'DELIVERED') updateData.deliveredAt = new Date();
-
-    // Find the most recent PENDING SMS log for this phone number (within last 2 minutes)
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-    const smsLog = await this.smsLogModel.findOneAndUpdate(
-      {
-        phoneNumber: phone,
-        status: 'PENDING',
-        createdAt: { $gte: twoMinutesAgo },
-      },
-      updateData,
-      {
-        new: true,
-        sort: { createdAt: -1 }, // Get the most recent one
-      },
-    );
-
-    if (smsLog) {
-      this.logger.log(
-        `✅ Found SMS log by phone number and updated: ${(smsLog as any)._id}`,
-      );
-    } else {
-      this.logger.warn(
-        `❌ No recent PENDING SMS log found for phone: ${phone}`,
-      );
-    }
-
-    return smsLog;
-  }
-  /**
-   * Find SMS logs by smsServerId (messageId from external API)
-   */
-  async findByMessageId(messageId: string): Promise<SmsLog | null> {
-    return this.smsLogModel.findOne({ smsServerId: messageId });
-  }
-
-  /**
-   * Retry sending a single failed SMS
-   */
   async retrySingleSms(smsLogId: string): Promise<{ success: boolean; message: string; smsLog?: SmsLog }> {
     try {
       const smsLog = await this.smsLogModel.findById(smsLogId).populate(['parentId', 'studentId']);
@@ -423,34 +306,27 @@ export class SmsLogService {
         };
       }
 
-      this.logger.log(`🔄 Retrying SMS ${smsLogId} to ${smsLog.phoneNumber}`);
+      this.logger.log(` Retrying SMS ${smsLogId} to ${smsLog.phoneNumber}`);
 
-      // Resend the SMS
       const smsResult = await this.smsService.sendSms(smsLog.phoneNumber, smsLog.message);
 
-      // Increment retry count
-      await this.incrementRetryCount(smsLogId);
-
-      // Update SMS log with result
       const updatedSmsLog = await this.smsLogModel.findByIdAndUpdate(
         smsLogId,
         {
-          status: smsResult.success ? 'PENDING' : 'FAILED',
-          smsServerId: smsResult.messageId || smsLog.smsServerId,
-          errorMessage: smsResult.success ? null : (smsResult.error || smsResult.message),
+          status: smsResult.success ? 'SENT' : 'FAILED',
         },
         { new: true },
       );
 
       if (smsResult.success) {
-        this.logger.log(`✅ SMS ${smsLogId} retried successfully`);
+        this.logger.log(` SMS ${smsLogId} retried successfully`);
         return {
           success: true,
-          message: 'SMS retried successfully and is now PENDING',
+          message: 'SMS retried successfully and is now SENT',
           smsLog: updatedSmsLog as SmsLog,
         };
       } else {
-        this.logger.warn(`❌ SMS ${smsLogId} retry failed: ${smsResult.error || smsResult.message}`);
+        this.logger.warn(` SMS ${smsLogId} retry failed: ${smsResult.error || smsResult.message}`);
         return {
           success: false,
           message: `SMS retry failed: ${smsResult.error || smsResult.message}`,
@@ -466,9 +342,7 @@ export class SmsLogService {
     }
   }
 
-  /**
-   * Retry all failed SMS
-   */
+ 
   async retryAllFailed(): Promise<{ success: boolean; message: string; results: any }> {
     try {
       const failedSms = await this.findAllFailed();
@@ -485,7 +359,7 @@ export class SmsLogService {
         };
       }
 
-      this.logger.log(`🔄 Retrying ${failedSms.length} failed SMS`);
+      this.logger.log(` Retrying ${failedSms.length} failed SMS`);
 
       let retriedSuccessfully = 0;
       let stillFailed = 0;
@@ -522,9 +396,7 @@ export class SmsLogService {
     }
   }
 
-  /**
-   * Cancel a single SMS in SENDING or PENDING status
-   */
+
   async cancelSingleSendingSms(smsLogId: string): Promise<{ success: boolean; message: string }> {
     try {
       const smsLog = await this.smsLogModel.findById(smsLogId);
@@ -545,11 +417,9 @@ export class SmsLogService {
 
       await this.smsLogModel.findByIdAndUpdate(smsLogId, {
         status: 'FAILED',
-        errorMessage: 'Cancelled by user',
-        ignored: true
       });
 
-      this.logger.log(`✅ SMS ${smsLogId} cancelled successfully`);
+      this.logger.log(` SMS ${smsLogId} cancelled successfully`);
       return {
         success: true,
         message: 'SMS cancelled successfully',
@@ -563,26 +433,21 @@ export class SmsLogService {
     }
   }
 
-  /**
-   * Cancel all SMS in SENDING or PENDING status
-   */
+
   async cancelAllSendingSms(): Promise<{ success: boolean; message: string; count: number }> {
     try {
       const result = await this.smsLogModel.updateMany(
         {
           status: { $in: ['SENDING', 'PENDING'] },
-          ignored: { $ne: true }
         },
         {
           $set: {
             status: 'FAILED',
-            errorMessage: 'Cancelled by user',
-            ignored: true
           }
         },
       );
 
-      this.logger.log(`✅ ${result.modifiedCount} sending/pending SMS cancelled`);
+      this.logger.log(`${result.modifiedCount} sending/pending SMS cancelled`);
       return {
         success: true,
         message: `${result.modifiedCount} SMS cancelled`,
@@ -596,5 +461,60 @@ export class SmsLogService {
         count: 0,
       };
     }
+  }
+
+  async findAllWithPagination(
+    page: number = 1,
+    limit: number = 20,
+    filters?: {
+      status?: string;
+      notificationId?: string;
+      parentId?: string;
+      studentId?: string;
+      from?: string;
+      to?: string;
+    },
+    sortBy: string = 'createdAt',
+    sortOrder: 'asc' | 'desc' = 'desc',
+  ): Promise<{ data: SmsLog[]; total: number; page: number; limit: number; totalPages: number }> {
+    const skip = (page - 1) * limit;
+    const query: any = {};
+
+    if (filters?.status) query.status = filters.status;
+    if (filters?.notificationId) query.notificationId = filters.notificationId;
+    if (filters?.parentId) query.parentId = filters.parentId;
+    if (filters?.studentId) query.studentId = filters.studentId;
+
+
+    if (filters?.from || filters?.to) {
+      query.createdAt = {};
+      if (filters?.from) query.createdAt.$gte = new Date(filters.from);
+      if (filters?.to) query.createdAt.$lte = new Date(filters.to);
+    }
+
+
+    const sortObj: any = {};
+    sortObj[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+
+    const [data, total] = await Promise.all([
+      this.smsLogModel
+        .find(query)
+        .sort(sortObj)
+        .skip(skip)
+        .limit(limit)
+        .populate(['parentId', 'studentId']),
+      this.smsLogModel.countDocuments(query),
+    ]);
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
   }
 }
