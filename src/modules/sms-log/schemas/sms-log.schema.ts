@@ -34,23 +34,8 @@ export class SmsLog {
   })
   status: string;
 
-  @Prop()
-  smsServerId?: string;
-
-  @Prop()
-  errorMessage?: string;
-
-  @Prop()
-  sentAt?: Date;
-
-  @Prop()
-  deliveredAt?: Date;
-
-  @Prop({ default: 0 })
-  retryCount: number;
-
-  @Prop({ default: false })
-  ignored: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const SmsLogSchema = SchemaFactory.createForClass(SmsLog);
