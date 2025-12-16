@@ -116,7 +116,8 @@ export class NotificationSchedulerService {
           );
           // Send SMS
           const smsResult = await this.smsService.sendSms(parent.phone, message);
-          // Create SMS log with PENDING status and store messageId
+
+          // Create SMS log with status based on API response
           await this.smsLogService.create({
             notificationId: notification._id,
             notificationTitle: notification.title,
@@ -125,10 +126,9 @@ export class NotificationSchedulerService {
             studentId: student._id,
             phoneNumber: parent.phone,
             message,
-            status: smsResult.success ? 'PENDING' : 'FAILED',
-            smsServerId: smsResult.messageId, // Store the messageId from API
-            errorMessage: smsResult.success ? undefined : (smsResult.error || smsResult.message),
+            status: smsResult.success ? 'SENT' : 'FAILED',
           });
+
           if (smsResult.success) {
             successCount++;
           } else {
@@ -157,12 +157,6 @@ export class NotificationSchedulerService {
       );
       this.logger.log(
         `Notification ${notification._id}: ${successCount} sent, ${failureCount} failed`,
-      );
-      // Delete the notification after successful sending
-      // The SMS logs are preserved for history
-      await this.notificationModel.findByIdAndDelete(notification._id);
-      this.logger.log(
-        `Notification ${notification._id} deleted from scheduled notifications`,
       );
     } catch (error) {
       this.logger.error(
@@ -300,7 +294,8 @@ export class NotificationSchedulerService {
           );
           // Send SMS to external API
           const smsResult = await this.smsService.sendSms(parent.phone, message);
-          // Create SMS log with PENDING status and store messageId for tracking
+
+          // Create SMS log with status based on API response
           const smsLog = await this.smsLogService.create({
             notificationId: null, // No notification ID for immediate sends
             notificationTitle: sendImmediateDto.title,
@@ -309,13 +304,12 @@ export class NotificationSchedulerService {
             studentId: student._id,
             phoneNumber: parent.phone,
             message,
-            status: smsResult.success ? 'PENDING' : 'FAILED',
-            smsServerId: smsResult.messageId, // Store the messageId from external API
-            errorMessage: smsResult.success ? undefined : (smsResult.error || smsResult.message),
+            status: smsResult.success ? 'SENT' : 'FAILED',
           });
+          smsLogIds.push((smsLog as any)._id.toString());
+
           if (smsResult.success) {
             pendingCount++;
-            smsLogIds.push((smsLog as any)._id.toString());
           } else {
             failureCount++;
             this.logger.error(`Failed to send SMS: ${smsResult.message || smsResult.error}`);
@@ -330,14 +324,14 @@ export class NotificationSchedulerService {
         }
       }
       this.logger.log(
-        `Immediate send completed: ${pendingCount} pending, ${failureCount} failed`,
+        `Immediate send completed: ${pendingCount} sent, ${failureCount} failed`,
       );
       return {
         success: true,
-        message: `SMS envoyés: ${pendingCount} en cours, ${failureCount} échoués`,
+        message: `SMS envoyés: ${pendingCount} envoyés, ${failureCount} échoués`,
         stats: {
           totalRecipients: pendingCount + failureCount,
-          pendingCount,
+          sentCount: pendingCount,
           failureCount,
           smsLogIds, // Return IDs for frontend tracking
         },
