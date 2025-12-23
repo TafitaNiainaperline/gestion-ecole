@@ -245,13 +245,14 @@ export class NotificationSchedulerService {
   }
   /**
    * Send SMS immediately without scheduling
-   * Returns pendingCount instead of successCount - status will be updated via WebSocket
+   * Uses REST-based bulk approach - all SMS sent in one request with immediate response
    */
   async sendImmediate(
     sendImmediateDto: SendImmediateDto,
   ): Promise<{ success: boolean; message: string; stats: any }> {
     try {
-      this.logger.log('Sending immediate SMS notification');
+      this.logger.log('Sending immediate SMS notification (REST bulk approach)');
+
       // Create a temporary notification object for processing
       const tempNotification = {
         _id: 'immediate-' + Date.now(),
@@ -262,84 +263,167 @@ export class NotificationSchedulerService {
         targetClasses: sendImmediateDto.targetClasses,
         targetStudents: sendImmediateDto.targetStudents,
       };
+
       // Get target students
       const targetStudents = await this.getTargetStudents(tempNotification);
       this.logger.log(`Processing ${targetStudents.length} target students for immediate send`);
-      let pendingCount = 0;
-      let failureCount = 0;
-      const smsLogIds: string[] = [];
-      // Send SMS to each student's parent
+
+      // Prepare recipients with their personalized messages
+      interface RecipientData {
+        student: any;
+        parent: any;
+        phone: string;
+        message: string;
+      }
+
+      const recipients: RecipientData[] = [];
+      let skippedCount = 0;
+
+      // Build list of valid recipients
       for (const student of targetStudents) {
-        try {
-          this.logger.log(
-            `Processing student: ${student._id} (${student.firstName} ${student.lastName})`,
+        const parent = student.parentId;
+
+        if (!parent) {
+          this.logger.warn(
+            `Student ${student._id} (${student.firstName} ${student.lastName}) has no parent associated`,
           );
-          const parent = student.parentId;
-          if (!parent) {
-            this.logger.warn(
-              `Student ${student._id} (${student.firstName} ${student.lastName}) has no parent associated`,
+          skippedCount++;
+          continue;
+        }
+
+        if (!parent.phone) {
+          this.logger.warn(
+            `Parent ${parent._id} for student ${student._id} has no phone number`,
+          );
+          skippedCount++;
+          continue;
+        }
+
+        // Build personalized message
+        const message = this.buildMessage(
+          sendImmediateDto.message,
+          parent,
+          student,
+        );
+
+        recipients.push({
+          student,
+          parent,
+          phone: parent.phone,
+          message,
+        });
+      }
+
+      if (recipients.length === 0) {
+        this.logger.warn('No valid recipients found');
+        return {
+          success: false,
+          message: 'Aucun destinataire valide trouvé',
+          stats: {
+            totalRecipients: 0,
+            sentCount: 0,
+            failedCount: skippedCount,
+            smsLogIds: [],
+          },
+        };
+      }
+
+      // Group recipients by message content (for bulk sending)
+      // Note: If all messages are the same, we can send all in one request
+      // For personalized messages, we may need multiple requests
+      const messageGroups = new Map<string, RecipientData[]>();
+      recipients.forEach(r => {
+        const existing = messageGroups.get(r.message) || [];
+        existing.push(r);
+        messageGroups.set(r.message, existing);
+      });
+
+      let sentCount = 0;
+      let failedCount = skippedCount;
+      const smsLogIds: string[] = [];
+      const results: any[] = [];
+
+      // Send SMS for each message group
+      for (const [message, groupRecipients] of messageGroups) {
+        const phones = groupRecipients.map(r => r.phone);
+
+        this.logger.log(`📤 Sending bulk SMS to ${phones.length} recipients`);
+
+        // Use the new REST-based multi SMS
+        const smsResult = await this.smsService.sendMultiSms(phones, message);
+
+        // Create a map of results by phone for quick lookup
+        const resultsByPhone = new Map<string, any>();
+        smsResult.results.forEach(r => {
+          resultsByPhone.set(r.phone, r);
+        });
+
+        // Create SMS logs for each recipient
+        for (const recipient of groupRecipients) {
+          const formattedPhone = recipient.phone.replace(/\s+/g, '').replace(/^\+261/, '0');
+          const apiRes = resultsByPhone.get(formattedPhone);
+
+          try {
+            // Create SMS log entry with final status
+            const smsLog = await this.smsLogService.create({
+              notificationId: null,
+              notificationTitle: sendImmediateDto.title,
+              notificationType: sendImmediateDto.type,
+              parentId: recipient.parent._id,
+              studentId: recipient.student._id,
+              phoneNumber: formattedPhone,
+              message: recipient.message,
+              status: apiRes?.success ? 'SENT' : 'FAILED',
+              smsServerId: apiRes?.smsLogId || null,
+              errorMessage: apiRes?.success ? undefined : (apiRes?.error || 'Unknown error'),
+              sentAt: apiRes?.success ? new Date() : undefined,
+            });
+
+            const logId = (smsLog as any)._id.toString();
+            smsLogIds.push(logId);
+
+            if (apiRes?.success) {
+              sentCount++;
+              results.push({
+                phone: formattedPhone,
+                success: true,
+                smsLogId: logId,
+                externalSmsId: apiRes.smsLogId,
+                status: apiRes.status || 'SENT',
+              });
+            } else {
+              failedCount++;
+              results.push({
+                phone: formattedPhone,
+                success: false,
+                smsLogId: logId,
+                error: apiRes?.error || 'Unknown error',
+              });
+            }
+          } catch (error) {
+            this.logger.error(
+              `Failed to create SMS log for ${formattedPhone}: ${
+                error instanceof Error ? error.message : 'Unknown error'
+              }`,
             );
-            failureCount++;
-            continue;
+            failedCount++;
           }
-          if (!parent.phone) {
-            this.logger.warn(
-              `Parent ${parent._id} for student ${student._id} has no phone number`,
-            );
-            failureCount++;
-            continue;
-          }
-          this.logger.log(
-            `Sending SMS to parent ${parent.name} (${parent.phone})`,
-          );
-          // Build personalized message
-          const message = this.buildMessage(
-            sendImmediateDto.message,
-            parent,
-            student,
-          );
-          // Send SMS to external API
-          const smsResult = await this.smsService.sendSms(parent.phone, message);
-          // Create SMS log with PENDING status and store messageId for tracking
-          const smsLog = await this.smsLogService.create({
-            notificationId: null, // No notification ID for immediate sends
-            notificationTitle: sendImmediateDto.title,
-            notificationType: sendImmediateDto.type,
-            parentId: parent._id,
-            studentId: student._id,
-            phoneNumber: parent.phone,
-            message,
-            status: smsResult.success ? 'PENDING' : 'FAILED',
-            smsServerId: smsResult.messageId, // Store the messageId from external API
-            errorMessage: smsResult.success ? undefined : (smsResult.error || smsResult.message),
-          });
-          if (smsResult.success) {
-            pendingCount++;
-            smsLogIds.push((smsLog as any)._id.toString());
-          } else {
-            failureCount++;
-            this.logger.error(`Failed to send SMS: ${smsResult.message || smsResult.error}`);
-          }
-        } catch (error) {
-          this.logger.error(
-            `Failed to send SMS for student ${student._id}: ${
-              error instanceof Error ? error.message : 'Unknown error'
-            }`,
-          );
-          failureCount++;
         }
       }
+
       this.logger.log(
-        `Immediate send completed: ${pendingCount} pending, ${failureCount} failed`,
+        `✅ Immediate send completed: ${sentCount} sent, ${failedCount} failed`,
       );
+
       return {
-        success: true,
-        message: `SMS envoyés: ${pendingCount} en cours, ${failureCount} échoués`,
+        success: sentCount > 0,
+        message: `SMS envoyés: ${sentCount} réussis, ${failedCount} échoués`,
         stats: {
-          totalRecipients: pendingCount + failureCount,
-          pendingCount,
-          failureCount,
-          smsLogIds, // Return IDs for frontend tracking
+          totalRecipients: sentCount + failedCount,
+          sentCount,
+          failedCount,
+          smsLogIds,
+          results,
         },
       };
     } catch (error) {
