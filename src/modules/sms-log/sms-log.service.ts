@@ -76,10 +76,6 @@ export class SmsLogService {
     return smsLog as SmsLog;
   }
 
-  async findPending(): Promise<SmsLog[]> {
-    return this.smsLogModel.find({ status: 'PENDING', retryCount: { $lt: 3 } });
-  }
-
   async findAllFailed(): Promise<SmsLogDocument[]> {
     return this.smsLogModel
       .find({ status: 'FAILED', ignored: { $ne: true } })
@@ -155,9 +151,16 @@ export class SmsLogService {
     }
   }
 
-  async getStats(notificationId: string): Promise<any> {
-    const logs = await this.smsLogModel.find({ notificationId });
-
+  /**
+   * Helper method to calculate stats from a list of SMS logs
+   */
+  private calculateStats(logs: SmsLog[]): {
+    total: number;
+    sent: number;
+    delivered: number;
+    failed: number;
+    pending: number;
+  } {
     return {
       total: logs.length,
       sent: logs.filter((l) => l.status === 'SENT').length,
@@ -165,6 +168,11 @@ export class SmsLogService {
       failed: logs.filter((l) => l.status === 'FAILED').length,
       pending: logs.filter((l) => l.status === 'PENDING').length,
     };
+  }
+
+  async getStats(notificationId: string): Promise<any> {
+    const logs = await this.smsLogModel.find({ notificationId });
+    return this.calculateStats(logs);
   }
 
   async findAll(): Promise<SmsLog[]> {
@@ -176,14 +184,7 @@ export class SmsLogService {
 
   async getGlobalStats(): Promise<any> {
     const logs = await this.smsLogModel.find();
-
-    return {
-      total: logs.length,
-      sent: logs.filter((l) => l.status === 'SENT').length,
-      delivered: logs.filter((l) => l.status === 'DELIVERED').length,
-      failed: logs.filter((l) => l.status === 'FAILED').length,
-      pending: logs.filter((l) => l.status === 'PENDING').length,
-    };
+    return this.calculateStats(logs);
   }
 
   async getRecentNotifications(limit: number = 10): Promise<any[]> {
@@ -332,94 +333,6 @@ export class SmsLogService {
     return history;
   }
 
-  async updateStatusByMessageId(
-    messageId: string,
-    status: string,
-    data?: any,
-  ): Promise<SmsLog | null> {
-    this.logger.debug(
-      `🔍 Searching for SMS log with smsServerId: ${messageId}`,
-    );
-
-    const updateData: any = { status };
-    if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
-    if (status === 'SENT') updateData.sentAt = new Date();
-    if (status === 'DELIVERED') updateData.deliveredAt = new Date();
-
-    // Mettre à jour le smsServerId avec le nouveau messageId
-    updateData.smsServerId = messageId;
-
-    const smsLog = await this.smsLogModel.findOneAndUpdate(
-      { smsServerId: messageId },
-      updateData,
-      { new: true },
-    );
-
-    if (smsLog) {
-      this.logger.debug(`✅ Found and updated SMS log: ${(smsLog as any)._id}`);
-    } else {
-      this.logger.warn(`❌ No SMS log found with smsServerId: ${messageId}`);
-      // List all recent SMS logs to help debug
-      const recentLogs = await this.smsLogModel
-        .find()
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .select('_id smsServerId phoneNumber status createdAt');
-      this.logger.debug(`📋 Recent SMS logs: ${JSON.stringify(recentLogs)}`);
-    }
-
-    return smsLog;
-  }
-
-  async updateStatusByPhoneNumber(
-    phone: string,
-    status: string,
-    messageId: string,
-    data?: any,
-  ): Promise<SmsLog | null> {
-    this.logger.debug(`🔍 Searching for SMS log by phone number: ${phone}`);
-
-    const updateData: any = {
-      status,
-      smsServerId: messageId, // Update with the new messageId from broadcast
-    };
-    if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
-    if (status === 'SENT') updateData.sentAt = new Date();
-    if (status === 'DELIVERED') updateData.deliveredAt = new Date();
-
-    // Find the most recent PENDING SMS log for this phone number (within last 2 minutes)
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-    const smsLog = await this.smsLogModel.findOneAndUpdate(
-      {
-        phoneNumber: phone,
-        status: 'PENDING',
-        createdAt: { $gte: twoMinutesAgo },
-      },
-      updateData,
-      {
-        new: true,
-        sort: { createdAt: -1 }, // Get the most recent one
-      },
-    );
-
-    if (smsLog) {
-      this.logger.log(
-        `✅ Found SMS log by phone number and updated: ${(smsLog as any)._id}`,
-      );
-    } else {
-      this.logger.warn(
-        `❌ No recent PENDING SMS log found for phone: ${phone}`,
-      );
-    }
-
-    return smsLog;
-  }
-  /**
-   * Find SMS logs by smsServerId (messageId from external API)
-   */
-  async findByMessageId(messageId: string): Promise<SmsLog | null> {
-    return this.smsLogModel.findOne({ smsServerId: messageId });
-  }
 
   /**
    * Retry sending a single failed SMS

@@ -44,71 +44,22 @@ export class SmsService {
     // Enlever espaces et convertir +261 en 0
     return phone.replace(/\s+/g, '').replace(/^\+261/, '0');
   }
+  /**
+   * Send SMS to a single phone number
+   * Delegates to sendBulkSms for consistency
+   */
   async sendSms(phoneNumber: string, message: string): Promise<SmsApiResponse> {
-    try {
-      this.logger.log(`Sending SMS to ${phoneNumber}`);
-      if (!this.apiUrl || !this.secretId || !this.projectId) {
-        this.logger.error('SMS API configuration missing');
-        return {
-          success: false,
-          message: 'Configuration SMS manquante',
-        };
-      }
-      const formattedPhone = this.formatPhoneNumber(phoneNumber);
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-secret-id': this.secretId,
-          'x-project-id': this.projectId,
-        },
-        body: JSON.stringify({
-          phones: [formattedPhone],
-          message: message,
-        }),
-      });
-      const data = await response.json();
+    const bulkResult = await this.sendBulkSms([phoneNumber], message);
 
-      // 🔍 LOG: Log la réponse complète de l'API
-      this.logger.log(`📥 Full API Response: ${JSON.stringify(data)}`);
-
-      if (!response.ok) {
-        this.logger.error(`SMS API error: ${JSON.stringify(data)}`);
-        return {
-          success: false,
-          message: data.message || "Erreur lors de l'envoi",
-        };
-      }
-      this.logger.log(`SMS sent successfully to ${formattedPhone}`);
-      // Extract messageId from API response
-      // L'API retourne { data: [{ _id: "...", phone: "...", ... }] }
-      const messageId =
-        data.messageId ||
-        data.data?.[0]?._id || // ← CORRECTION: L'API retourne _id dans data[0]
-        data.data?.messageId ||
-        data.data?.messages?.[0]?.messageId;
-
-      this.logger.log(`Extracted messageId: ${messageId}`);
-
-      return {
-        success: true,
-        message: 'SMS sent successfully',
-        messageId,
-        data: {
-          phoneNumber: formattedPhone,
-          message,
-          timestamp: new Date(),
-          ...data,
-        },
-      };
-    } catch (error) {
-      this.logger.error(`Failed to send SMS to ${phoneNumber}:`, error);
-      return {
-        success: false,
-        message: 'Failed to send SMS',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
+    // Convert bulk response to single SMS response
+    return {
+      success: bulkResult.success,
+      message: bulkResult.message,
+      messageId: bulkResult.messageIds?.[0],
+      messageIds: bulkResult.messageIds,
+      data: bulkResult.data,
+      error: bulkResult.error,
+    };
   }
   async sendBulkSms(
     phoneNumbers: string[],
