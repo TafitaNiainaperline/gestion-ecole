@@ -10,6 +10,100 @@ import { Model } from 'mongoose';
 import { SmsLog, SmsLogDocument } from './schemas/sms-log.schema';
 import { SmsService } from '../sms/sms.service';
 
+// Types for method parameters and return values
+interface CreateSmsLogData {
+  notificationId?: string;
+  notificationTitle?: string;
+  notificationType?: string;
+  parentId: string;
+  studentId?: string;
+  phoneNumber: string;
+  message: string;
+  status?: string;
+  smsServerId?: string;
+  errorMessage?: string;
+}
+
+interface UpdateStatusData {
+  smsServerId?: string;
+  errorMessage?: string;
+}
+
+interface SmsStats {
+  total: number;
+  sent: number;
+  delivered: number;
+  failed: number;
+  pending: number;
+}
+
+interface RecentNotification {
+  id: string;
+  type: string;
+  destinataires: string;
+  nombre: number;
+  date: string;
+}
+
+interface NotificationGroupEntry {
+  id: string;
+  type: string;
+  title: string;
+  sentAt?: Date;
+  count: number;
+  recipients: Set<string>;
+}
+
+interface HistoryCampaign {
+  id: string;
+  notificationTitle: string;
+  notificationType: string;
+  message: string;
+  sentAt?: Date;
+  phones: Set<string>;
+  successCount: number;
+  failedCount: number;
+  totalCount: number;
+}
+
+interface HistoryEntry {
+  id: string;
+  phones: string[];
+  message: string;
+  sentAt?: Date;
+  status: string;
+  notificationType: string;
+  destinatairesInfo: string;
+  successCount: number;
+  failedCount: number;
+  totalCount: number;
+}
+
+interface RetryResults {
+  total: number;
+  retried: number;
+  stillFailed: number;
+}
+
+interface ClasseStats {
+  classe: string;
+  sent: number;
+  total: number;
+  taux: number;
+}
+
+interface PopulatedParent {
+  _id: string;
+  name?: string;
+}
+
+interface PopulatedStudent {
+  _id: string;
+  classe?: string;
+  firstName?: string;
+  lastName?: string;
+}
+
 @Injectable()
 export class SmsLogService {
   private readonly logger = new Logger(SmsLogService.name);
@@ -20,7 +114,7 @@ export class SmsLogService {
     private smsService: SmsService,
   ) {}
 
-  async create(smsLogData: any): Promise<SmsLog> {
+  async create(smsLogData: CreateSmsLogData): Promise<SmsLog> {
     const newSmsLog = new this.smsLogModel(smsLogData);
     return newSmsLog.save();
   }
@@ -43,8 +137,12 @@ export class SmsLogService {
     return smsLog;
   }
 
-  async updateStatus(id: string, status: string, data?: any): Promise<SmsLog> {
-    const updateData: any = { status };
+  async updateStatus(
+    id: string,
+    status: string,
+    data?: UpdateStatusData,
+  ): Promise<SmsLog> {
+    const updateData: Record<string, string | Date> = { status };
 
     if (data?.smsServerId) updateData.smsServerId = data.smsServerId;
     if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
@@ -170,7 +268,7 @@ export class SmsLogService {
     };
   }
 
-  async getStats(notificationId: string): Promise<any> {
+  async getStats(notificationId: string): Promise<SmsStats> {
     const logs = await this.smsLogModel.find({ notificationId });
     return this.calculateStats(logs);
   }
@@ -182,12 +280,14 @@ export class SmsLogService {
       .populate(['parentId', 'studentId']);
   }
 
-  async getGlobalStats(): Promise<any> {
+  async getGlobalStats(): Promise<SmsStats> {
     const logs = await this.smsLogModel.find();
     return this.calculateStats(logs);
   }
 
-  async getRecentNotifications(limit: number = 10): Promise<any[]> {
+  async getRecentNotifications(
+    limit: number = 10,
+  ): Promise<RecentNotification[]> {
     // Group by notificationId/notificationTitle and get recent notifications
     const logs = await this.smsLogModel
       .find({ status: 'SENT' })
@@ -196,7 +296,7 @@ export class SmsLogService {
       .populate(['parentId', 'studentId']);
 
     // Group by notification (using title and type as key)
-    const grouped = new Map<string, any>();
+    const grouped = new Map<string, NotificationGroupEntry>();
 
     logs.forEach((log) => {
       const key = `${log.notificationTitle || 'Sans titre'}_${log.notificationType || 'CUSTOM'}_${
@@ -214,10 +314,11 @@ export class SmsLogService {
         });
       }
 
-      const entry = grouped.get(key);
+      const entry = grouped.get(key)!;
       entry.count++;
       if (log.parentId && typeof log.parentId === 'object') {
-        entry.recipients.add((log.parentId as any).name || 'Inconnu');
+        const populatedParent = log.parentId as unknown as PopulatedParent;
+        entry.recipients.add(populatedParent.name || 'Inconnu');
       }
     });
 
@@ -252,7 +353,7 @@ export class SmsLogService {
     return new Date(date).toLocaleDateString('fr-FR');
   }
 
-  async getHistory(): Promise<any[]> {
+  async getHistory(): Promise<HistoryEntry[]> {
     // Get all SMS logs sorted by date (all statuses, not just SENT)
     const logs = await this.smsLogModel
       .find({ status: { $in: ['SENT', 'DELIVERED', 'FAILED', 'PENDING'] } })
@@ -260,11 +361,12 @@ export class SmsLogService {
       .populate(['parentId', 'studentId']);
 
     // Group by notification campaign (using title, type, and rounded time)
-    const grouped = new Map<string, any>();
+    const grouped = new Map<string, HistoryCampaign>();
 
-    logs.forEach((log: any) => {
+    logs.forEach((log: SmsLogDocument) => {
       // Create a key for grouping (notification title + type + hour)
-      const dateForGrouping = log.sentAt || log.createdAt;
+      const dateForGrouping =
+        log.sentAt || (log.get('createdAt') as Date | undefined);
       const dateRounded = dateForGrouping
         ? new Date(dateForGrouping).toISOString().slice(0, 13) // Group by hour
         : 'unknown';
@@ -276,7 +378,7 @@ export class SmsLogService {
           notificationTitle: log.notificationTitle || 'Sans titre',
           notificationType: log.notificationType || 'CUSTOM',
           message: log.message,
-          sentAt: log.sentAt || log.createdAt,
+          sentAt: log.sentAt || (log.get('createdAt') as Date | undefined),
           phones: new Set<string>(),
           successCount: 0,
           failedCount: 0,
@@ -284,7 +386,7 @@ export class SmsLogService {
         });
       }
 
-      const entry = grouped.get(key);
+      const entry = grouped.get(key)!;
       entry.totalCount++;
 
       if (
@@ -332,7 +434,6 @@ export class SmsLogService {
 
     return history;
   }
-
 
   /**
    * Retry sending a single failed SMS
@@ -415,7 +516,7 @@ export class SmsLogService {
   async retryAllFailed(): Promise<{
     success: boolean;
     message: string;
-    results: any;
+    results: RetryResults;
   }> {
     try {
       const failedSms = await this.findAllFailed();
@@ -553,7 +654,7 @@ export class SmsLogService {
     }
   }
 
-  async getStatsByClassForCurrentMonth(): Promise<any[]> {
+  async getStatsByClassForCurrentMonth(): Promise<ClasseStats[]> {
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDayOfMonth = new Date(
@@ -574,11 +675,19 @@ export class SmsLogService {
       .populate({
         path: 'studentId',
         select: 'classe firstName lastName',
-      });
+      })
+      .lean<
+        Array<
+          Omit<SmsLog, 'studentId'> & {
+            studentId?: PopulatedStudent;
+            createdAt?: Date;
+          }
+        >
+      >();
 
     const classeStats = new Map<string, { sent: number; total: number }>();
 
-    logs.forEach((log: any) => {
+    logs.forEach((log) => {
       const classe = log.studentId?.classe || 'Sans classe';
 
       if (!classeStats.has(classe)) {
