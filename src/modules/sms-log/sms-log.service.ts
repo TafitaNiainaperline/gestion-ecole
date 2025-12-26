@@ -9,100 +9,19 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SmsLog, SmsLogDocument } from './schemas/sms-log.schema';
 import { SmsService } from '../sms/sms.service';
-
-// Types for method parameters and return values
-interface CreateSmsLogData {
-  notificationId?: string;
-  notificationTitle?: string;
-  notificationType?: string;
-  parentId: string;
-  studentId?: string;
-  phoneNumber: string;
-  message: string;
-  status?: string;
-  smsServerId?: string;
-  errorMessage?: string;
-}
-
-interface UpdateStatusData {
-  smsServerId?: string;
-  errorMessage?: string;
-}
-
-interface SmsStats {
-  total: number;
-  sent: number;
-  delivered: number;
-  failed: number;
-  pending: number;
-}
-
-interface RecentNotification {
-  id: string;
-  type: string;
-  destinataires: string;
-  nombre: number;
-  date: string;
-}
-
-interface NotificationGroupEntry {
-  id: string;
-  type: string;
-  title: string;
-  sentAt?: Date;
-  count: number;
-  recipients: Set<string>;
-}
-
-interface HistoryCampaign {
-  id: string;
-  notificationTitle: string;
-  notificationType: string;
-  message: string;
-  sentAt?: Date;
-  phones: Set<string>;
-  successCount: number;
-  failedCount: number;
-  totalCount: number;
-}
-
-interface HistoryEntry {
-  id: string;
-  phones: string[];
-  message: string;
-  sentAt?: Date;
-  status: string;
-  notificationType: string;
-  destinatairesInfo: string;
-  successCount: number;
-  failedCount: number;
-  totalCount: number;
-}
-
-interface RetryResults {
-  total: number;
-  retried: number;
-  stillFailed: number;
-}
-
-interface ClasseStats {
-  classe: string;
-  sent: number;
-  total: number;
-  taux: number;
-}
-
-interface PopulatedParent {
-  _id: string;
-  name?: string;
-}
-
-interface PopulatedStudent {
-  _id: string;
-  classe?: string;
-  firstName?: string;
-  lastName?: string;
-}
+import {
+  CreateSmsLogData,
+  UpdateStatusData,
+  SmsStats,
+  RecentNotification,
+  NotificationGroupEntry,
+  HistoryCampaign,
+  HistoryEntry,
+  RetryResults,
+  ClasseStats,
+  PopulatedParent,
+  PopulatedStudent,
+} from './interfaces';
 
 @Injectable()
 export class SmsLogService {
