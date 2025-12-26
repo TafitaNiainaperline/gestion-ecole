@@ -115,7 +115,9 @@ export class SmsController {
           sentAt: apiRes?.success ? new Date() : null,
         });
 
-        const smsLogId = (smsLog as any)._id?.toString();
+        const smsLogId = String(
+          (smsLog as unknown as { _id: { toString(): string } })._id,
+        );
 
         if (apiRes?.success) {
           sentCount++;
