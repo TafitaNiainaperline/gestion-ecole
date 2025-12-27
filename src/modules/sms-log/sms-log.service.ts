@@ -1,26 +1,25 @@
 import {
+  forwardRef,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
-  Inject,
-  forwardRef,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { SmsLog, SmsLogDocument } from './schemas/sms-log.schema';
 import { SmsService } from '../sms/sms.service';
 import {
+  ClasseStats,
   CreateSmsLogData,
-  UpdateStatusData,
-  SmsStats,
-  RecentNotification,
-  NotificationGroupEntry,
   HistoryCampaign,
   HistoryEntry,
-  RetryResults,
-  ClasseStats,
+  NotificationGroupEntry,
   PopulatedParent,
   PopulatedStudent,
+  RecentNotification,
+  RetryResults,
+  SmsStats,
 } from './interfaces';
 
 @Injectable()
@@ -48,29 +47,6 @@ export class SmsLogService {
     const smsLog = await this.smsLogModel
       .findById(id)
       .populate(['parentId', 'studentId']);
-
-    if (!smsLog) {
-      throw new NotFoundException(`SmsLog with ID ${id} not found`);
-    }
-
-    return smsLog;
-  }
-
-  async updateStatus(
-    id: string,
-    status: string,
-    data?: UpdateStatusData,
-  ): Promise<SmsLog> {
-    const updateData: Record<string, string | Date> = { status };
-
-    if (data?.smsServerId) updateData.smsServerId = data.smsServerId;
-    if (data?.errorMessage) updateData.errorMessage = data.errorMessage;
-    if (status === 'SENT') updateData.sentAt = new Date();
-    if (status === 'DELIVERED') updateData.deliveredAt = new Date();
-
-    const smsLog = await this.smsLogModel.findByIdAndUpdate(id, updateData, {
-      new: true,
-    });
 
     if (!smsLog) {
       throw new NotFoundException(`SmsLog with ID ${id} not found`);
@@ -241,8 +217,7 @@ export class SmsLogService {
       }
     });
 
-    // Convert to array and format
-    const notifications = Array.from(grouped.values())
+    return Array.from(grouped.values())
       .map((notif) => ({
         id: notif.id,
         type: notif.type,
@@ -251,8 +226,6 @@ export class SmsLogService {
         date: this.formatRelativeTime(notif.sentAt),
       }))
       .slice(0, limit);
-
-    return notifications;
   }
 
   private formatRelativeTime(date: Date | undefined): string {
@@ -318,14 +291,14 @@ export class SmsLogService {
         entry.failedCount++;
       }
 
-      // Add phone number
+      // Add a phone number
       if (log.phoneNumber) {
         entry.phones.add(log.phoneNumber);
       }
     });
 
     // Convert to array and format for frontend
-    const history = Array.from(grouped.values()).map((campaign, index) => {
+    return Array.from(grouped.values()).map((campaign, index) => {
       const totalCount = campaign.totalCount;
       const successCount = campaign.successCount;
       const failedCount = campaign.failedCount;
@@ -350,8 +323,6 @@ export class SmsLogService {
         totalCount,
       };
     });
-
-    return history;
   }
 
   /**
@@ -390,7 +361,7 @@ export class SmsLogService {
       // Increment retry count
       await this.incrementRetryCount(smsLogId);
 
-      // Update SMS log with result
+      // Update SMS log with a result
       const updatedSmsLog = await this.smsLogModel.findByIdAndUpdate(
         smsLogId,
         {
@@ -489,9 +460,6 @@ export class SmsLogService {
     }
   }
 
-  /**
-   * Cancel a single SMS in SENDING or PENDING status
-   */
   async cancelSingleSendingSms(
     smsLogId: string,
   ): Promise<{ success: boolean; message: string }> {
@@ -532,9 +500,6 @@ export class SmsLogService {
     }
   }
 
-  /**
-   * Cancel all SMS in SENDING or PENDING status
-   */
   async cancelAllSendingSms(): Promise<{
     success: boolean;
     message: string;
@@ -620,7 +585,7 @@ export class SmsLogService {
       }
     });
 
-    const result = Array.from(classeStats.entries())
+    return Array.from(classeStats.entries())
       .map(([classe, stats]) => ({
         classe,
         sent: stats.sent,
@@ -630,7 +595,5 @@ export class SmsLogService {
       }))
       .sort((a, b) => b.total - a.total) // Sort by total SMS descending
       .slice(0, 10);
-
-    return result;
   }
 }
