@@ -12,15 +12,9 @@ export interface CreateSmsLogData {
   sentAt?: Date | null;
 }
 
-export interface UpdateStatusData {
-  smsServerId?: string;
-  errorMessage?: string;
-}
-
 export interface SmsStats {
   total: number;
   sent: number;
-  delivered: number;
   failed: number;
   pending: number;
 }

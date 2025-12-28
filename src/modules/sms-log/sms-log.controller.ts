@@ -43,9 +43,9 @@ export class SmsLogController {
   }
 
   @Public()
-  @Get('sending-pending')
-  async getSendingAndPending() {
-    return this.smsLogService.findSendingAndPending();
+  @Get('pending')
+  async getPending() {
+    return this.smsLogService.findPending();
   }
 
   @Public()
@@ -86,14 +86,14 @@ export class SmsLogController {
 
   @Public()
   @Post(':id/cancel')
-  async cancelSingleSendingSms(@Param('id') id: string) {
-    return this.smsLogService.cancelSingleSendingSms(id);
+  async cancelSinglePendingSms(@Param('id') id: string) {
+    return this.smsLogService.cancelSinglePendingSms(id);
   }
 
   @Public()
-  @Post('cancel-all-sending')
-  async cancelAllSendingSms() {
-    return this.smsLogService.cancelAllSendingSms();
+  @Post('cancel-all-pending')
+  async cancelAllPendingSms() {
+    return this.smsLogService.cancelAllPendingSms();
   }
 
   @Public()

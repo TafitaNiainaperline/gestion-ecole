@@ -76,10 +76,10 @@ export class SmsLogService {
       .sort({ createdAt: -1 });
   }
 
-  async findSendingAndPending(): Promise<SmsLogDocument[]> {
+  async findPending(): Promise<SmsLogDocument[]> {
     return this.smsLogModel
       .find({
-        status: { $in: ['SENDING', 'PENDING'] },
+        status: 'PENDING',
         ignored: { $ne: true },
       })
       .populate(['parentId', 'studentId'])
@@ -150,14 +150,12 @@ export class SmsLogService {
   private calculateStats(logs: SmsLog[]): {
     total: number;
     sent: number;
-    delivered: number;
     failed: number;
     pending: number;
   } {
     return {
       total: logs.length,
       sent: logs.filter((l) => l.status === 'SENT').length,
-      delivered: logs.filter((l) => l.status === 'DELIVERED').length,
       failed: logs.filter((l) => l.status === 'FAILED').length,
       pending: logs.filter((l) => l.status === 'PENDING').length,
     };
@@ -248,7 +246,7 @@ export class SmsLogService {
   async getHistory(): Promise<HistoryEntry[]> {
     // Get all SMS logs sorted by date (all statuses, not just SENT)
     const logs = await this.smsLogModel
-      .find({ status: { $in: ['SENT', 'DELIVERED', 'FAILED', 'PENDING'] } })
+      .find({ status: { $in: ['SENT', 'FAILED', 'PENDING'] } })
       .sort({ createdAt: -1 })
       .populate(['parentId', 'studentId']);
 
@@ -281,11 +279,7 @@ export class SmsLogService {
       const entry = grouped.get(key)!;
       entry.totalCount++;
 
-      if (
-        log.status === 'SENT' ||
-        log.status === 'DELIVERED' ||
-        log.status === 'PENDING'
-      ) {
+      if (log.status === 'SENT' || log.status === 'PENDING') {
         entry.successCount++;
       } else if (log.status === 'FAILED') {
         entry.failedCount++;
@@ -460,7 +454,7 @@ export class SmsLogService {
     }
   }
 
-  async cancelSingleSendingSms(
+  async cancelSinglePendingSms(
     smsLogId: string,
   ): Promise<{ success: boolean; message: string }> {
     try {
@@ -473,10 +467,10 @@ export class SmsLogService {
         };
       }
 
-      if (smsLog.status !== 'SENDING' && smsLog.status !== 'PENDING') {
+      if (smsLog.status !== 'PENDING') {
         return {
           success: false,
-          message: `Cannot cancel SMS with status: ${smsLog.status}. Only SENDING or PENDING SMS can be cancelled.`,
+          message: `Cannot cancel SMS with status: ${smsLog.status}. Only PENDING SMS can be cancelled.`,
         };
       }
 
@@ -500,7 +494,7 @@ export class SmsLogService {
     }
   }
 
-  async cancelAllSendingSms(): Promise<{
+  async cancelAllPendingSms(): Promise<{
     success: boolean;
     message: string;
     count: number;
@@ -508,7 +502,7 @@ export class SmsLogService {
     try {
       const result = await this.smsLogModel.updateMany(
         {
-          status: { $in: ['SENDING', 'PENDING'] },
+          status: 'PENDING',
           ignored: { $ne: true },
         },
         {
@@ -520,16 +514,14 @@ export class SmsLogService {
         },
       );
 
-      this.logger.log(
-        `✅ ${result.modifiedCount} sending/pending SMS cancelled`,
-      );
+      this.logger.log(`✅ ${result.modifiedCount} pending SMS cancelled`);
       return {
         success: true,
         message: `${result.modifiedCount} SMS cancelled`,
         count: result.modifiedCount,
       };
     } catch (error) {
-      this.logger.error('Error cancelling all sending/pending SMS:', error);
+      this.logger.error('Error cancelling all pending SMS:', error);
       return {
         success: false,
         message: `Error cancelling SMS: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -554,7 +546,7 @@ export class SmsLogService {
     const logs = await this.smsLogModel
       .find({
         createdAt: { $gte: firstDayOfMonth, $lte: lastDayOfMonth },
-        status: { $in: ['SENT', 'DELIVERED', 'PENDING'] },
+        status: { $in: ['SENT', 'PENDING'] },
       })
       .populate({
         path: 'studentId',
@@ -580,7 +572,7 @@ export class SmsLogService {
 
       const stats = classeStats.get(classe)!;
       stats.total++;
-      if (log.status === 'SENT' || log.status === 'DELIVERED') {
+      if (log.status === 'SENT') {
         stats.sent++;
       }
     });

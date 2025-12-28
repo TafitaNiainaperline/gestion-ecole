@@ -43,8 +43,6 @@ export class SmsLog {
   @Prop()
   sentAt?: Date;
 
-  @Prop()
-  deliveredAt?: Date;
 
   @Prop({ default: 0 })
   retryCount: number;
