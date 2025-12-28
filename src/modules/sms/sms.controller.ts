@@ -86,7 +86,7 @@ export class SmsController {
     // Send all SMS via external API in one request
     const apiResult = await this.smsService.sendMultiSms(phones, dto.message);
 
-    // Create a map of results by phone for quick lookup
+    // Create a map of results by phone for a quick lookup
     const resultsByPhone = new Map<string, SmsResultDto>();
     apiResult.results.forEach((r) => {
       resultsByPhone.set(r.phone, r);
@@ -115,7 +115,9 @@ export class SmsController {
           sentAt: apiRes?.success ? new Date() : null,
         });
 
-        const smsLogId = (smsLog as any)._id?.toString();
+        const smsLogId = String(
+          (smsLog as unknown as { _id: { toString(): string } })._id,
+        );
 
         if (apiRes?.success) {
           sentCount++;

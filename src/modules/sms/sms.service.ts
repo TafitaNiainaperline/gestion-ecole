@@ -1,27 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SmsResultDto, MultiSmsResponseDto } from './dto/multi-sms.dto';
+import {
+  SmsApiResponse,
+  ExternalApiSmsItem,
+  ExternalApiResponse,
+} from './interfaces';
 
-export interface SmsApiResponse {
-  success: boolean;
-  message: string;
-  messageId?: string;
-  messageIds?: string[];
-  data?: any;
-  error?: string;
-}
-
-export interface ExternalApiSmsItem {
-  _id: string;
-  phone: string;
-  message: string;
-  status: string;
-  isDraft: boolean;
-  projectId?: string;
-  secretId?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
 @Injectable()
 export class SmsService {
   private readonly logger = new Logger(SmsService.name);
@@ -41,13 +26,8 @@ export class SmsService {
     }
   }
   private formatPhoneNumber(phone: string): string {
-    // Enlever espaces et convertir +261 en 0
     return phone.replace(/\s+/g, '').replace(/^\+261/, '0');
   }
-  /**
-   * Send SMS to a single phone number
-   * Delegates to sendBulkSms for consistency
-   */
   async sendSms(phoneNumber: string, message: string): Promise<SmsApiResponse> {
     const bulkResult = await this.sendBulkSms([phoneNumber], message);
 
@@ -89,7 +69,7 @@ export class SmsService {
           message: message,
         }),
       });
-      const data = await response.json();
+      const data = (await response.json()) as ExternalApiResponse;
       if (!response.ok) {
         this.logger.error(`Bulk SMS API error: ${JSON.stringify(data)}`);
         return {
@@ -100,13 +80,9 @@ export class SmsService {
       this.logger.log(
         `Bulk SMS sent successfully to ${formattedPhones.length} recipients`,
       );
-      // Extract messageIds from API response
-      // L'API retourne { data: [{ _id: "...", phone: "..." }, ...] }
-      const messageIds =
+      const messageIds: string[] =
         data.messageIds ||
-        data.data?.map((sms: any) => sms._id) || // ← CORRECTION
-        data.data?.messageIds ||
-        data.data?.messages?.map((m: any) => m.messageId) ||
+        data.data?.map((sms: ExternalApiSmsItem) => sms._id) ||
         [];
 
       this.logger.log(`Extracted messageIds: ${JSON.stringify(messageIds)}`);
@@ -132,10 +108,6 @@ export class SmsService {
     }
   }
 
-  /**
-   * Send SMS to multiple recipients and return consolidated response
-   * This is the new REST-based approach replacing Socket-based updates
-   */
   async sendMultiSms(
     phones: string[],
     message: string,
@@ -188,7 +160,7 @@ export class SmsService {
         }),
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as ExternalApiResponse;
       this.logger.log(`📥 External API Response: ${JSON.stringify(data)}`);
 
       if (!response.ok) {
@@ -212,30 +184,20 @@ export class SmsService {
         };
       }
 
-      // Process the response from external API
-      // Expected format: { data: [{ _id: "...", phone: "...", status: "...", ... }, ...] }
       const smsItems: ExternalApiSmsItem[] = data.data || [];
 
-      // Create a map for quick lookup by phone
       const smsItemsByPhone = new Map<string, ExternalApiSmsItem>();
       smsItems.forEach((item) => {
         const normalizedPhone = this.formatPhoneNumber(item.phone);
         smsItemsByPhone.set(normalizedPhone, item);
       });
 
-      // Build results for each phone
       formattedPhones.forEach((phone) => {
         const smsItem = smsItemsByPhone.get(phone);
 
         if (smsItem) {
-          // Determine success based on status
           const statusLower = smsItem.status?.toLowerCase() || '';
-          const isSuccess = [
-            'pending',
-            'sent',
-            'received',
-            'delivered',
-          ].includes(statusLower);
+          ['pending', 'sent', 'received', 'delivered'].includes(statusLower);
           const isFailed = statusLower === 'failed';
 
           if (isFailed) {
@@ -257,7 +219,6 @@ export class SmsService {
             sentCount++;
           }
         } else {
-          // Phone not found in response - likely failed
           results.push({
             phone,
             success: false,
